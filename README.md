@@ -175,7 +175,7 @@ three are five primitive types in 3yu:
     function that takes a string and returns a list of 3 strings
 
   - `FIFIFII`  
-    `(int) -> (int) -> (int) -> (int)` (readable version)  
+    `(int) -> (int) -> (int) -> int` (readable version)  
     function that takes 3 integers (curried) and returns an integer
 
 a non primitive type but used in documentation is the `E` or element type, where:
