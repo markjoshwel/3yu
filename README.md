@@ -99,7 +99,7 @@ function calls with the 2nd unit as `!` is a shorthand for `@ $0`, to make curry
 
 - example on reading the types:
 
-  for addition, the left register can be one of the types `NSL` and the right register `NSE`
+  for addition, the left register can be one of the types `NC` and the right register `NE`
   and should be interpreted as the following:
 
   - left hand `N` (numeric) can only be used with a right hand `N` numeric
