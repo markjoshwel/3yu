@@ -194,24 +194,24 @@ these registers are used for function interop and retrieving return values
 
 ### built-in functions
 
-| function name | return type | argument(s)     | description                                              |
-| ------------- | ----------- | --------------- | -------------------------------------------------------- |
-| `stdout~`     | -           | any             | prints whatever is passed to stdout, fails silently      |
-| `stderr~`     | -           | any             | prints whatever is passed to stderr, fails silently      |
-| `stdin~`      | `S`         | none            | reads a line from stdin, returns empty string if nothing |
-| `len~`        | `I`         | `C`             | returns the length of a string or list, 0s for integers  |
-| `min~`        | `N`         | `L_N`           | returns the minimum value in a list of numbers           |
-| `max~`        | `N`         | `L_N`           | returns the maximum value in a list of numbers           |
-| `slice~`      | `L_E`       | `C` `I` `I` `I` | container, start, stop=`-1`, step=`1`, returns slice     |
-| `index~`      | `E`         | `C` `I`         | container, index                                         |
-| `range~`      | `L_N`       | `I` `I` `I`     | start, stop=`-1`, step=`1`, returns a list               |
-| `take~`       | `L_E`       | `C` `I`         | takes the first n number of ekements, defaults to `1`    |
-| `drop~`       | `L_E`       | `C` `I`         | drops the first n number of elements, defaults to `1`    |
-| `foldl~`      | any         | `FEFEE` `E` `C` | function, initial accumulator value, list                |
-| `foldr~`      | any         | `FEFEE` `E` `C` | function, initial accumulator value, list                |
-| `map~`        | `L_E`       | `FE*` `C` `L`   | function, list                                           |
-| `filter~`     | `L_E`       | `FEI` `C` `L`   | function, list                                           |
-| `cast~`       | any         | any             | casts a value to another type, see cast matrix below     |
+| function name | return type | argument(s)       | description                                              |
+| ------------- | ----------- | ----------------- | -------------------------------------------------------- |
+| `stdout~`     | -           | any               | prints whatever is passed to stdout, fails silently      |
+| `stderr~`     | -           | any               | prints whatever is passed to stderr, fails silently      |
+| `stdin~`      | `S`         | none              | reads a line from stdin, returns empty string if nothing |
+| `len~`        | `I`         | `C`               | returns the length of a string or list, 0s for integers  |
+| `min~`        | `N`         | `L_N`             | returns the minimum value in a list of numbers           |
+| `max~`        | `N`         | `L_N`             | returns the maximum value in a list of numbers           |
+| `slice~`      | `L_E`       | `C` `I` `I` `I`   | container, start, stop=`-1`, step=`1`, returns slice     |
+| `index~`      | `E`         | `C` `I`           | container, index                                         |
+| `range~`      | `L_N`       | `I` `I` `I`       | start, stop=`-1`, step=`1`, returns a list               |
+| `take~`       | `L_E`       | `C` `I`           | takes the first n number of ekements, defaults to `1`    |
+| `drop~`       | `L_E`       | `C` `I`           | drops the first n number of elements, defaults to `1`    |
+| `foldl~`      | `<T>`       | `FEFE<T>` `E` `C` | function, initial accumulator value, list                |
+| `foldr~`      | `<T>`       | `FEFE<T>` `E` `C` | function, initial accumulator value, list                |
+| `map~`        | `L_E`       | `FE*` `C` `L`     | function, list                                           |
+| `filter~`     | `L_E`       | `FEI` `C` `L`     | function, list                                           |
+| `cast~`       | any         | any               | casts a value to another type, see cast matrix below     |
 
 | target type | castable types | note                            |
 | ----------- | -------------- | ------------------------------- |
@@ -221,8 +221,8 @@ these registers are used for function interop and retrieving return values
 | `L`         | `S`            | stringifies the list            |
 | `S`         | `I`            | turns into utf-8 binary         |
 
-if you forgot about currying, `FEFEE` means a function that takes two arguments of type
-`E`, and returns a value of type `E`
+if you forgot about currying, `FEFE<T>` means a function that takes two arguments of type
+`E`, and returns a value of type `<T>`
 
 for the `E` type, see [types](#types)
 
