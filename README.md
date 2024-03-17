@@ -7,16 +7,16 @@ oh and its almost-pure functional too i guess
 roadmap:
 
 - [ ] **stage 1**: the beginning of the end  
-      python parser + python (mypyc) runtime
+       python parser + python (mypyc) runtime
 
 - [ ] **stage 2**: oh thank god its 'readable'  
-      the data processing counter-language, a frontend transpiler for 3yu
+       the data processing counter-language, a frontend transpiler for 3yu
 
 - [ ] **stage 3**: executables at the speed of zig  
-      python parser + zig runtime
+       python parser + zig runtime
 
 - [ ] **stage 4**: oh god why is it self-"compiled"  
-      3yu parser + 3yu runtime
+       3yu parser + 3yu runtime
 
 if i ever hit stage 3, the project has gone too far and will not be worked on thereafter
 
@@ -85,27 +85,25 @@ function calls with the 2nd unit as `!` is a shorthand for `@ $0`, to make curry
 
 #### mathematical operators
 
-| mathematical operator   | 1st unit | 2nd unit              | third unit              | sets `$0` to...       |
-| ----------------------- | -------- | --------------------- | ----------------------- | --------------------- |
-| addition                | `+`      | left register (`NSL`) | right register (`IRS*`) | the result            |
-| concatenation           | `,`      | left register (`ISL`) | right register (`ISL`)  | the result            |
-| subtraction             | `-`      | left register (`NL`)  | right register (`NI`)   | the result            |
-| multiplication          | `*`      | left register (`NSL`) | right register (`NII`)  | the result            |
-| division                | `/`      | left register (`N`)   | right register (`N`)    | the result            |
-| modulo                  | `%`      | left register (`N`)   | right register (`N`)    | the result            |
-| bitshift left           | `l`      | left register (`NS`)  | right register (`II`)   | the result            |
-| bitshift right          | `r`      | left register (`NS`)  | right register (`II`)   | the result            |
-| proper subset/inclusion | `c`      | left register (`EE`)  | right register (`CC`)   | `1` if true, else `0` |
+| mathematical operator   | 1st unit | 2nd unit             | third unit            | sets `$0` to...       |
+| ----------------------- | -------- | -------------------- | --------------------- | --------------------- |
+| addition                | `+`      | left register (`NC`) | right register (`NE`) | the result            |
+| concatenation           | `,`      | left register (`IC`) | right register (`IC`) | the result            |
+| subtraction             | `-`      | left register (`N`)  | right register (`N`)  | the result            |
+| multiplication          | `*`      | left register (`NC`) | right register (`NI`) | the result            |
+| division                | `/`      | left register (`N`)  | right register (`N`)  | the result            |
+| modulo                  | `%`      | left register (`N`)  | right register (`N`)  | the result            |
+| bitshift left           | `l`      | left register (`NS`) | right register (`II`) | the result            |
+| bitshift right          | `r`      | left register (`NS`) | right register (`II`) | the result            |
+| proper subset/inclusion | `c`      | left register (`EE`) | right register (`CC`) | `1` if true, else `0` |
 
 - example on reading the types:
 
-  for subtraction, the left register can be one of the types `IRL` and the right register `IRI`
+  for addition, the left register can be one of the types `NSL` and the right register `NSE`
   and should be interpreted as the following:
 
   - left hand `N` (numeric) can only be used with a right hand `N` numeric
-  - left hand `L` (list) can only be used with a right hand `I` (int)  
-    this is because for lists, subtraction is the equivalent of popping,
-    and the right hand `I` is used as an index for the list
+  - left hand `C` (container) can only be used with a right hand `E` element
 
 for the `E` type, see [types](#types)
 
@@ -156,6 +154,7 @@ three are five primitive types in 3yu:
     defaults to an empty string `""`
 
   - `L<size><type(s)>`: list  
+    homogeneous list of a fixed size
     defaults to an empty list `[]`
 
     examples:
