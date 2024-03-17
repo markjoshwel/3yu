@@ -157,6 +157,11 @@ three are five primitive types in 3yu:
     homogeneous list of a fixed size
     defaults to an empty list `[]`
 
+    when defining a list, the size must be known
+
+    but when defining a list of which the first assignment comes from another value,
+    you can leave it empty (`_`) and it will be inferred
+
     examples:
 
     - `L3I`: list of 3 integers
@@ -315,7 +320,7 @@ def fib(n: int) -> int:
 
 ```3yu
 \ sum~ :: Function(List[Numeric]) -> Integer
-r sum~ FL_NE
+r sum~ FL_NI
 f sum~ (
    \ argument declaration
    r nums~ L_N   : nums $1
