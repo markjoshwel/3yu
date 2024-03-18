@@ -42,14 +42,13 @@ argv is given to the program as [type `L_S`](#types) in the [special register `$
 
 #### declarations, directives and assignment
 
-| instruction          | 1st unit | 2nd unit                          | third unit                |
-| -------------------- | -------- | --------------------------------- | ------------------------- |
-| comment              | `\`      | comment text                      | `\` or newline            |
-| scope declaration    | `(`      | scope instructions                | `)`                       |
-| function declaration | `f`      | name (see below for restrictions) | scope or boxed scope      |
-| register declaration | `r`      | name (see below for restrictions) | type, see [types](#types) |
-| assignment           | `:`      | target register                   | incoming register         |
-| include directive    | `#`      | file path                         | `~`                       |
+| instruction          | 1st unit | 2nd unit                          | third unit                        |
+| -------------------- | -------- | --------------------------------- | --------------------------------- |
+| comment              | `\`      | comment text                      | `\` or newline                    |
+| scope declaration    | `(`      | scope instructions                | `)`                               |
+| register declaration | `r`      | name (see below for restrictions) | type, see [types](#types)         |
+| assignment           | `:`      | target register                   | incoming register, value or scope |
+| include directive    | `#`      | file path                         | `~`                               |
 
 functions are basically just named scopes, can be called recursively,
 and are lazily evaluated
@@ -159,7 +158,7 @@ three are five primitive types in 3yu:
 
     when defining a list, the size must be known
 
-    but when defining a list of which the first assignment comes from another value,
+    but when defining a list of which the first assignment comes from another register,
     you can leave it empty (`_`) and it will be inferred
 
     examples:
@@ -319,8 +318,8 @@ def fib(n: int) -> int:
 ### summation of a list
 
 ```3yu
-\ sum~ :: Function(List[Numeric]) -> Integer
-r sum~ FL_NI
+\ sum~ :: Function(List[Numeric]) -> Numeric
+r sum~ FL_NN
 f sum~ (
    \ argument declaration
    r nums~ L_N   : nums $1
