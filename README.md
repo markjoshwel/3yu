@@ -1,6 +1,6 @@
 # 3yu
 
-a horrible esoteric language where everything is 3 segments wide
+a horrible esoteric language where everything is 3 subunits wide
 
 oh and its almost-pure functional too i guess
 
@@ -42,13 +42,13 @@ argv is given to the program as [type `L_S`](#types) in the [special register `$
 
 #### declarations, directives and assignment
 
-| instruction          | 1st unit | 2nd unit                          | third unit                        |
-| -------------------- | -------- | --------------------------------- | --------------------------------- |
-| comment              | `\`      | comment text                      | `\` or newline                    |
-| scope declaration    | `(`      | scope instructions                | `)`                               |
-| register declaration | `r`      | name (see below for restrictions) | type, see [types](#types)         |
-| assignment           | `:`      | target register                   | incoming register, value or scope |
-| include directive    | `#`      | file path                         | `~`                               |
+| item                 | 1st subunit | 2nd subunit                       | 3rd subunit                       |
+| -------------------- | ----------- | --------------------------------- | --------------------------------- |
+| comment              | `\`         | comment text                      | `\` or newline                    |
+| scope declaration    | `(`         | scope instructions                | `)`                               |
+| register declaration | `r`         | name (see below for restrictions) | type, see [types](#types)         |
+| assignment           | `:`         | target register                   | incoming register, value or scope |
+| include directive    | `#`         | file path                         | `~`                               |
 
 functions are basically just named scopes, can be called recursively,
 and are lazily evaluated
@@ -63,6 +63,8 @@ when declaring registers, a default value will be assigned to the register. see 
 the only exception to the default assignment is when the declaration is used for arguments, where
 the actual value will be assigned when the function is called
 
+scopes are boxed from the surrounding world so that they can't access registers outside of their scope
+
 _all_ scopes can return a value, which will be stored in the [special return register `$0`](#special-registers),
 if nothing was returned, `$0` will be set to 0
 
@@ -74,27 +76,30 @@ _no matter where the directive is located in the file_
 
 #### control
 
-| control instruction | 1st unit | 2nd unit                              | third unit                         |
-| ------------------- | -------- | ------------------------------------- | ---------------------------------- |
-| if                  | `?`      | register, greater than 0 to run scope | scope                              |
-| function call       | `@`      | function or register name, or `!`     | register for argument, `_` if none |
-| return              | `` ` ``  | register                              | `` ` ``                            |
+| control instruction | 1st subunit | 2nd subunit                       | 3rd subunit                        |
+| ------------------- | ----------- | --------------------------------- | ---------------------------------- |
+| if                  | `?`         | register, value or scope          | scope                              |
+| function call       | `@`         | function or register name, or `!` | register for argument, `_` if none |
+| return              | `` ` ``     | register                          | `` ` ``                            |
 
-function calls with the 2nd unit as `!` is a shorthand for `@ $0`, to make currying a little less painful
+an if (`?`) instruction will run the 3rd subunit (target scope) if the second unit (target scope) is not zero
+
+function calls with the 2nd subunit as `!` is a shorthand for `@ $0`, to make currying a little less painful
 
 #### mathematical operators
 
-| mathematical operator   | 1st unit | 2nd unit             | third unit            | sets `$0` to...       |
-| ----------------------- | -------- | -------------------- | --------------------- | --------------------- |
-| addition                | `+`      | left register (`NC`) | right register (`NE`) | the result            |
-| concatenation           | `,`      | left register (`IC`) | right register (`IC`) | the result            |
-| subtraction             | `-`      | left register (`N`)  | right register (`N`)  | the result            |
-| multiplication          | `*`      | left register (`NC`) | right register (`NI`) | the result            |
-| division                | `/`      | left register (`N`)  | right register (`N`)  | the result            |
-| modulo                  | `%`      | left register (`N`)  | right register (`N`)  | the result            |
-| bitshift left           | `l`      | left register (`NS`) | right register (`II`) | the result            |
-| bitshift right          | `r`      | left register (`NS`) | right register (`II`) | the result            |
-| proper subset/inclusion | `c`      | left register (`EE`) | right register (`CC`) | `1` if true, else `0` |
+| mathematical operator | 1st subunit | 2nd subunit              | 3rd subunit              |
+| --------------------- | ----------- | ------------------------ | ------------------------ |
+| addition              | `+`         | value or register (`NC`) | value or register (`NE`) |
+| concatenation         | `,`         | value or register (`IC`) | value or register (`IC`) |
+| subtraction           | `-`         | value or register (`N`)  | value or register (`N`)  |
+| multiplication        | `*`         | value or register (`NC`) | value or register (`NI`) |
+| division              | `/`         | value or register (`N`)  | value or register (`N`)  |
+| modulo                | `%`         | value or register (`N`)  | value or register (`N`)  |
+| bitshift left         | `l`         | value or register (`NS`) | value or register (`II`) |
+| bitshift right        | `r`         | value or register (`NS`) | value or register (`II`) |
+
+sets `$0` to the result of the operation
 
 - example on reading the types:
 
@@ -108,28 +113,34 @@ for the `E` type, see [types](#types)
 
 #### relational operators
 
-| relational operator | 1st unit | 2nd unit | third unit | sets `$0` to...       |
-| ------------------- | -------- | -------- | ---------- | --------------------- |
-| equals              | `=`      | register | register   | `1` if true, else `0` |
-| less than           | `<`      | register | register   | `1` if true, else `0` |
-| greater than        | `>`      | register | register   | `1` if true, else `0` |
-| less than or equal  | `[`      | register | register   | `1` if true, else `0` |
-| greater than or eq  | `]`      | register | register   | `1` if true, else `0` |
+| relational operator     | 1st subunit | 2nd subunit              | 3rd subunit              |
+| ----------------------- | ----------- | ------------------------ | ------------------------ |
+| equals                  | `=`         | value or register        | value or register        |
+| less than               | `<`         | value or register (`N`)  | value or register (`N`)  |
+| greater than            | `>`         | value or register (`N`)  | value or register (`N`)  |
+| less than or equal      | `[`         | value or register (`N`)  | value or register (`N`)  |
+| greater than or eq      | `]`         | value or register (`N`)  | value or register (`N`)  |
+| proper subset/inclusion | `c`         | value or register (`EE`) | value or register (`CC`) |
+
+sets `$0` to `1` if true, else `0`
 
 #### logical operators
 
-| logical operator | 1st unit | 2nd unit      | third unit     | sets `$0` to...       |
-| ---------------- | -------- | ------------- | -------------- | --------------------- |
-| and              | `&`      | left register | right register | `1` if true, else `0` |
-| or               | `\|`     | left register | right register | `1` if true, else `0` |
-| not              | `!`      | left register | right register | `1` if true, else `0` |
-| xor              | `^`      | left register | right register | `1` if true, else `0` |
-| bitwise and      | `7`      | left register | right register | `1` if true, else `0` |
-| bitwise or       | `\`      | left register | right register | `1` if true, else `0` |
-| bitwise not      | `1`      | left register | right register | `1` if true, else `0` |
-| bitwise xor      | `6`      | left register | right register | `1` if true, else `0` |
+| logical operator | 1st subunit | 2nd subunit              | 3rd subunit              |
+| ---------------- | ----------- | ------------------------ | ------------------------ |
+| logical and      | `&`         | value or register (`N`)  | value or register (`N`)  |
+| logical or       | `\|`        | value or register (`N`)  | value or register (`N`)  |
+| logical not      | `!`         | value or register (`N`)  | value or register (`N`)  |
+| logical xor      | `^`         | value or register (`N`)  | value or register (`N`)  |
+| bitwise and      | `7`         | value or register (`NS`) | value or register (`NS`) |
+| bitwise or       | `\`         | value or register (`NS`) | value or register (`NS`) |
+| bitwise not      | `1`         | value or register (`NS`) | value or register (`NS`) |
+| bitwise xor      | `6`         | value or register (`NS`) | value or register (`NS`) |
 
-these operators are only available for integer, rational, and string types
+sets `$0` to `1` if true, else `0`
+
+logical operators only operate on numeric types, treating anything greater than 0 as
+true, and anything else as false
 
 if for whatever reason you need a mnemonic for the bitwise logical operators,
 just dont press shift
@@ -300,6 +311,8 @@ f fib~ (
    + left~ right~
    ` $0 `
 )
+
+@ stdout~ ( @ fib~ 32 ` $0 ` )
 ```
 
 ```python
@@ -313,6 +326,8 @@ def fib(n: int) -> int:
     left = fib(n - 1)
     right = fib(n - 2)
     return left + right
+
+print(fib(32))
 ```
 
 ### summation of a list
@@ -342,6 +357,14 @@ f sum~ (
    + head~ $0          \ $0 = head~ + sum($0)
    ` $0 `              \ return $0
 )
+
+r list~ L3N
+: list~ 1
+: $0 2
+: $0 3
+: list~ $0
+
+@ stdout~ ( @ sum~ list~ ` $0 ` )  \ prints 6
 ```
 
 ```python
@@ -350,4 +373,6 @@ def sum(nums: list[int | float]) -> int:
         return 0
 
     return nums[0] + sum(nums[1:])
+
+print(sum([1, 2, 3]))
 ```

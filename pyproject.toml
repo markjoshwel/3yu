@@ -1,11 +1,17 @@
 [tool.poetry]
-name = "3yu"
+name = "threeyu"
 version = "0.0.1"
 description = "a horrible esoteric language where everything is 3 segments wide"
 authors = ["Mark Joshwel <mark@joshwel.co>"]
 license = "Unlicense"
 readme = "README.md"
 include = ["README.md"]
+packages = [
+    { include = "threeyu" },
+]
+
+[tool.poetry.scripts]
+3yu = "threeyu.cli:entry"
 
 [tool.poetry.dependencies]
 python = "^3.10"
