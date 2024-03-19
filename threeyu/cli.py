@@ -39,7 +39,7 @@ from .frontend import analyse, parse
 def entry():
     match argv:
         case [prog, _path, *args]:
-            path = Path(path)
+            path = Path(_path)
             if not (path.exists() and path.is_file()):
                 stderr.write(f"error: '{path}' dpes not exist\n")
                 exit(1)

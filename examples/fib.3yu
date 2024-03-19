@@ -1,23 +1,23 @@
-\ fib~ :: Function(Integer) -> Integer
-r fib~ FII
+; fib~ :: Function(Integer) -> Integer
+d fib~ FII
 f fib~ (
-   \ argument declaration
-   r n~ I   : n~ $1
+   ; argument declaration
+   d n~ I   : n~ $1
 
-   \ base case
-   = n~ 0           \ n~ = n~ == 0
-   ? n~ ( ` 0 ` )   \ if n~ is not 0, return 0
+   ; base case
+   = n~ 0           ; n~ = n~ == 0
+   ? n~ ( ` 0 ` )   ; if n~ is not 0, return 0
 
-   = n~ 1           \ n~ = n~ == 1
-   ? n~ ( ` 1 ` )   \ if n~ is not 1, return 1
+   = n~ 1           ; n~ = n~ == 1
+   ? n~ ( ` 1 ` )   ; if n~ is not 1, return 1
 
-   \ recursive case
-   r left~ I
+   ; recursive case
+   d left~ I
    - n~    1
    @ fib~  $0
    : left~ $0
 
-   r right~ I
+   d right~ I
    - n~     2
    @ fib~   $0
    : right~ $0

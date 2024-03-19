@@ -44,9 +44,9 @@ argv is given to the program as [type `L_S`](#types) in the [special register `$
 
 | item                 | 1st subunit | 2nd subunit                       | 3rd subunit                       |
 | -------------------- | ----------- | --------------------------------- | --------------------------------- |
-| comment              | `\`         | comment text                      | `\` or newline                    |
+| comment              | `;`         | comment text                      | `;` or newline                    |
 | scope declaration    | `(`         | scope instructions                | `)`                               |
-| register declaration | `r`         | name (see below for restrictions) | type, see [types](#types)         |
+| register declaration | `d`         | name (see below for restrictions) | type, see [types](#types)         |
 | assignment           | `:`         | target register                   | incoming register, value or scope |
 | include directive    | `#`         | file path                         | `~`                               |
 
@@ -246,29 +246,29 @@ for the `E` type, see [types](#types)
 3yu is functional, so arguments are passed by currying
 
 ```3yu
-\ declare function and then assign a scope to it
-r add3~ FIFIFII
+; declare function and then assign a scope to it
+d add3~ FIFIFII
 f add3~ (
-   \ declare arguments by declaring registers and then
-   \ assigning them to argument registers to be used
+   ; declare arguments by declaring registers and then
+   ; assigning them to argument registers to be used
 
-   r a~ I   : a~ $1
-   r b~ I   : b~ $2
-   r c~ I   : c~ $3
+   d a~ I   : a~ $1
+   d b~ I   : b~ $2
+   d c~ I   : c~ $3
 
-   \ everything up to now is basically equivalent to
-   \ `function add_three (a: int, b: int, c:int)`
+   ; everything up to now is basically equivalent to
+   ; `function add_three (a: int, b: int, c:int)`
 
    + a  b
    + $0 c
    ` $0 `
 )
 
-\ because of currying, you call the function like this
+; because of currying, you call the function like this
 @ add3~ 1
 @ !     2
 @ !     3
-@ stdout~ $0  \ prints 6
+@ stdout~ $0  ; prints 6
 ```
 
 other than special registers `#1-...`, functions cannot access registers outside of their scope
@@ -284,26 +284,26 @@ radd3~FIFIFIIfadd3~(:$1I:$2I:$3I+$1~$2~+$0c`$0`)@add3~1@!2@!3@stdout~$0
 ### fibonacci
 
 ```3yu
-\ fib~ :: Function(Integer) -> Integer
-r fib~ FII
-f fib~ (
-   \ argument declaration
-   r n~ I   : n~ $1
+; fib~ :: Function(Integer) -> Integer
+d fib~ FII
+: fib~ (
+   ; argument declaration
+   d n~ I   : n~ $1
 
-   \ base case
-   = n~ 0           \ n~ = n~ == 0
-   ? n~ ( ` 0 ` )   \ if n~ is not 0, return 0
+   ; base case
+   = n~ 0           ; n~ = n~ == 0
+   ? n~ ( ` 0 ` )   ; if n~ is not 0, return 0
 
-   = n~ 1           \ n~ = n~ == 1
-   ? n~ ( ` 1 ` )   \ if n~ is not 1, return 1
+   = n~ 1           ; n~ = n~ == 1
+   ? n~ ( ` 1 ` )   ; if n~ is not 1, return 1
 
-   \ recursive case
-   r left~ I
+   ; recursive case
+   d left~ I
    - n~    1
    @ fib~  $0
    : left~ $0
 
-   r right~ I
+   d right~ I
    - n~     2
    @ fib~   $0
    : right~ $0
@@ -333,38 +333,38 @@ print(fib(32))
 ### summation of a list
 
 ```3yu
-\ sum~ :: Function(List[Numeric]) -> Numeric
-r sum~ FL_NN
-f sum~ (
-   \ argument declaration
-   r nums~ L_N   : nums $1
+; sum~ :: Function(List[Numeric]) -> Numeric
+d sum~ FL_NN
+: sum~ (
+   ; argument declaration
+   d nums~ L_N   : nums $1
 
-   \ base case
-   @ len~ nums~        \ $0 = len~(nums~)
-   = $0   0            \ $0 = $0 == 0
-   ? $0   ( ` 0 ` )    \ if $0 is not 0, return 0
+   ; base case
+   @ len~ nums~        ; $0 = len~(nums~)
+   = $0   0            ; $0 = $0 == 0
+   ? $0   ( ` 0 ` )    ; if $0 is not 0, return 0
 
-   \ recursive case
-   r head~  N          \ head~ = nums~[0]
+   ; recursive case
+   d head~  N          ; head~ = nums~[0]
    @ index~ nums~
    @ !      0
    : head~  $0
 
-   @ slice~ nums~      \ $0 = nums~[1:]
+   @ slice~ nums~      ; $0 = nums~[1:]
    @ !      1
 
-   @ sum~  $0          \ $0 = sum($0)
-   + head~ $0          \ $0 = head~ + sum($0)
-   ` $0 `              \ return $0
+   @ sum~  $0          ; $0 = sum($0)
+   + head~ $0          ; $0 = head~ + sum($0)
+   ` $0 `              ; return $0
 )
 
-r list~ L3N
+d list~ L3N
 : list~ 1
 : $0 2
 : $0 3
 : list~ $0
 
-@ stdout~ ( @ sum~ list~ ` $0 ` )  \ prints 6
+@ stdout~ ( @ sum~ list~ ` $0 ` )  ; prints 6
 ```
 
 ```python
