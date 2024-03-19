@@ -1,6 +1,6 @@
 ; fib~ :: Function(Integer) -> Integer
 d fib~ FII
-f fib~ (
+: fib~ (
    ; argument declaration
    d n~ I   : n~ $1
 
