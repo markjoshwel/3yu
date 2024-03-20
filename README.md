@@ -121,6 +121,7 @@ for the `E` type, see [types](#types)
 | less than or equal      | `[`         | value or register (`N`)  | value or register (`N`)  |
 | greater than or eq      | `]`         | value or register (`N`)  | value or register (`N`)  |
 | proper subset/inclusion | `c`         | value or register (`EE`) | value or register (`CC`) |
+| is type                 | `t`         | value or register        | type                     |
 
 sets `$0` to `1` if true, else `0`
 

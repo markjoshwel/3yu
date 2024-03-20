@@ -34,6 +34,7 @@ from sys import argv, stderr, stdout
 
 from .backend import run
 from .frontend import analyse, parse
+from . import __doc__ as doc
 
 
 def entry():
@@ -50,6 +51,10 @@ def entry():
 
             tyu_program = parse(path.read_text(encoding="utf-8"), debug=debug)
 
+            if "-a" in args or "--ast" in args:
+                stdout.write(f"{tyu_program}\n")
+                exit(0)
+
             for error in analyse(tyu_program, debug=debug):
                 stderr.write(error)
                 exit(2)
@@ -57,4 +62,13 @@ def entry():
             run(tyu_program, debug=debug)
 
         case _:
-            stderr.write(f"error: no 3yu program specified\n")
+            stderr.write(
+                f"{doc.splitlines()[1].split(':', maxsplit=1)[-1].strip()}\n"
+                "\n"
+                "usage:\n"
+                f"   {argv[0]} <path to 3yu source file> [flags]\n"
+                "\n"
+                "flags:\n"
+                "   -d, --debug\tprint debug information\n"
+                "   -a, --ast  \tprint the abstract syntax tree; will not run the program\n"
+            )

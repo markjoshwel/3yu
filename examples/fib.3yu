@@ -26,4 +26,4 @@ d fib~ FII
    ` $0 `
 )
 
-@ stdout~ ( @ fib~ 32 ` $0 ` )
+@ stdout~ ( @ fib~ 32 )

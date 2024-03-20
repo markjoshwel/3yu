@@ -31,7 +31,7 @@ For more information, please refer to <http://unlicense.org/>
 
 from enum import Enum
 from sys import stderr
-from typing import Any, Generator, NamedTuple
+from typing import Any, Generator, NamedTuple, Optional
 
 
 class TyuUnits(Enum):
@@ -66,6 +66,10 @@ class TyuUnits(Enum):
     BOR = 28
     BNOT = 29
     BXOR = 30
+    ISTYPE = 31
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}.{self.name}"
 
 
 class TyuSubUnit(Enum):
@@ -75,25 +79,65 @@ class TyuSubUnit(Enum):
     VALUE = 3  # integer or rational number, string, list or a scope
     SCOPE = 4
     SCOPE_INNARD = 5  # any text until the next unit's character as a delimiter
-    TYPE = 6  # N, I, R, C, S, L<int size><type>, F<argument type><return type>
+    TYPE = 6  # N, I, R, C, S, L<int size><type>, F<argument type><return type>, E
 
 
-class TyuPrimitiveType(Enum):
+class TyuTypes(Enum):
     NUMERIC = "N"
     INTEGER = "I"
     RATIONAL = "R"
     CONTAINER = "C"
     STRING = "S"
     LIST = "L"
+    ELEMENT = "E"
     FUNCTION = "F"
 
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}.{self.name}"
 
-class TyuType(NamedTuple):
-    type: TyuPrimitiveType
-    inner: "TyuType"
 
-    def __str__(self) -> str:
-        return "*"  # TODO: implement
+class TyuTypesPart(Enum):
+    TYPE_SINGLE = 0
+    TYPE_MULTIPLE = 1
+    SIZE = 2
+
+class TyuSingleType(NamedTuple):
+    type: TyuTypes
+
+class TyuListType(NamedTuple):
+    size: int
+    types: tuple[TyuTypes, ...] = ()
+
+class TyuFunctionType(NamedTuple):
+    argument: "TyuType"
+    return_type: "TyuType"
+
+
+TyuType = TyuSingleType | TyuListType | TyuFunctionType
+
+
+TYPE_SYNTAX: dict[
+    TyuTypes,
+    tuple[str] | tuple[str, TyuTypesPart, TyuTypesPart],
+] = {
+    # - `N`: number
+    #   - `I`: integer
+    #   - `R`: rational
+    # - `C`: container
+    #   - `S`: string
+    #   - `L<size><type(s)>`: list
+    # - `E`: element
+    # - `F<argument type><return type>`: function
+    TyuTypes.NUMERIC: ("N",),
+    TyuTypes.INTEGER: ("I",),
+    TyuTypes.RATIONAL: ("R",),
+    TyuTypes.CONTAINER: ("C",),
+    TyuTypes.STRING: ("S",),
+    TyuTypes.LIST: ("L", TyuTypesPart.SIZE, TyuTypesPart.TYPE_MULTIPLE),
+    TyuTypes.FUNCTION: ("F", TyuTypesPart.TYPE_SINGLE, TyuTypesPart.TYPE_SINGLE),
+    TyuTypes.ELEMENT: ("E",),
+}
+TYPE_SYNTAX_STARTS: dict[str, TyuTypes] = {v[0]: k for k, v in TYPE_SYNTAX.items()}
 
 
 UNIT_SYNTAX: dict[TyuUnits, tuple[str, TyuSubUnit, str | TyuSubUnit]] = {
@@ -143,12 +187,14 @@ UNIT_SYNTAX: dict[TyuUnits, tuple[str, TyuSubUnit, str | TyuSubUnit]] = {
     # | less than or equal      | `[`         | value or register (`N`)  | value or register (`N`)  |
     # | greater than or eq      | `]`         | value or register (`N`)  | value or register (`N`)  |
     # | proper subset/inclusion | `c`         | value or register (`EE`) | value or register (`CC`) |
+    # | is type                 | `t`         | value or register        | type                     |
     TyuUnits.EQ: ("=", TyuSubUnit.VALUE, TyuSubUnit.VALUE),
     TyuUnits.LT: ("<", TyuSubUnit.VALUE, TyuSubUnit.VALUE),
     TyuUnits.GT: (">", TyuSubUnit.VALUE, TyuSubUnit.VALUE),
     TyuUnits.LTE: ("[", TyuSubUnit.VALUE, TyuSubUnit.VALUE),
     TyuUnits.GTE: ("]", TyuSubUnit.VALUE, TyuSubUnit.VALUE),
     TyuUnits.SUBSET: ("c", TyuSubUnit.VALUE, TyuSubUnit.VALUE),
+    TyuUnits.ISTYPE: ("t", TyuSubUnit.VALUE, TyuSubUnit.TYPE),
     # | logical operator | 1st subunit | 2nd subunit              | 3rd subunit              |
     # | ---------------- | ----------- | ------------------------ | ------------------------ |
     # | logical and      | `&`         | value or register (`N`)  | value or register (`N`)  |
@@ -172,12 +218,16 @@ UNIT_SYNTAX_STARTS: dict[str, TyuUnits] = {v[0]: k for k, v in UNIT_SYNTAX.items
 
 
 class TyuScope(NamedTuple):
-    declarations: list["TyuUnit"] = []
-    functions: list["TyuUnit"] = []
-    units: list["TyuUnit"] = []
+    declarations: tuple["TyuUnit", ...] = ()
+    functions: tuple["TyuUnit", ...] = ()
+    units: tuple["TyuUnit", ...] = ()
 
 
-SubunitType = str | int | float | TyuScope | TyuType
+class TyuRegister(NamedTuple):
+    name: int | str  # ints for special registers, strings for named registers
+
+
+SubunitType = str | int | float | TyuScope | TyuType | TyuRegister
 
 
 class TyuUnit(NamedTuple):
@@ -185,11 +235,6 @@ class TyuUnit(NamedTuple):
     subunit1: str
     subunit2: SubunitType
     subunit3: SubunitType
-
-
-class TyuProgram(NamedTuple):
-    global_functions: dict[str, TyuUnit] = {}
-    top_level_code: list[TyuUnit] = []
 
 
 class ParseError(Exception):
@@ -208,273 +253,360 @@ class ParseError(Exception):
 
 
 def englishify(subunit_number: int) -> str:
-    match subunit_number:
+    match int(str(subunit_number)[-1]):
+        case 1:
+            return f"{subunit_number}st"
+
         case 2:
-            return "2nd"
+            return f"{subunit_number}nd"
 
         case 3:
-            return "3rd"
+            return f"{subunit_number}rd"
 
         case _:
-            return f"{subunit_number}"
+            return f"{subunit_number}th"
 
 
-def debug_return_decorator(func):
-    def wrapper(*args, **kwargs):
-        stderr.write(f"debug: {func.__name__} called with {args=} {kwargs=}\n")
-        result = func(*args, **kwargs)
-        stderr.write(f"debug: {func.__name__} returned {repr(result)}\n")
-        return result
-
-    return wrapper
-
-
-@debug_return_decorator
-def parse_subunit(
+def _parse_subunit_text(
     iterator: Generator[tuple[int, int, str, str], None, None],
     current_unit: TyuUnits,
     subunit_number: int,
-    expected_subunit: TyuSubUnit | str,
     debug: bool = False,
-) -> SubunitType:
+) -> str:
     basket: list[str] = []
 
-    match expected_subunit:
-        case TyuSubUnit.TEXT:
-            basket = []
+    for line, column, char, next_char in iterator:
+        basket.append(char)
 
-            for line, column, char, next_char in iterator:
-                basket.append(char)
+        if next_char == UNIT_SYNTAX[current_unit][-1]:
+            return "".join(basket).strip()
 
-                if next_char == UNIT_SYNTAX[current_unit][-1]:
-                    return "".join(basket).strip()
+        if (current_unit != TyuUnits.COMMENT) and (
+            char == UNIT_SYNTAX[TyuUnits.COMMENT][0]
+        ):
+            raise ParseError(
+                f"was expecting a text {englishify(subunit_number)} subunit for "
+                f"the {current_unit.name.lower()} unit, "
+                "but was stopped by a comment",
+                line=line,
+                column=column,
+            )
 
-                if (current_unit != TyuUnits.COMMENT) and (
-                    char == UNIT_SYNTAX[TyuUnits.COMMENT][0]
-                ):
-                    raise ParseError(
-                        f"was expecting a {expected_subunit.name.lower()} "
-                        f"{englishify(subunit_number)} subunit for "
-                        f"the {current_unit.name.lower()} unit, "
-                        "but was stopped by a comment",
-                        line=line,
-                        column=column,
-                    )
+        if current_unit == (TyuUnits.COMMENT) and (next_char == "\n"):
+            return "".join(basket).strip()
 
-                if current_unit == (TyuUnits.COMMENT) and (next_char == "\n"):
-                    return "".join(basket).strip()
+    else:
+        if current_unit == TyuUnits.COMMENT:
+            return "".join(basket).strip()
 
-            else:
-                if current_unit == TyuUnits.COMMENT:
-                    return "".join(basket).strip()
+        raise ParseError(
+            f"was expecting a text {englishify(subunit_number)} subunit for "
+            f"the {current_unit.name.lower()} unit, "
+            "but reached the end of file instead",
+            line=line,
+            column=column,
+        )
 
+
+def _parse_subunit_value(
+    iterator: Generator[tuple[int, int, str, str], None, None],
+    current_unit: TyuUnits,
+    subunit_number: int,
+    expected_subunit: TyuSubUnit,
+    debug: bool = False,
+) -> str | int | float | TyuRegister | TyuScope:
+    basket: list[str] = []
+    subunit = expected_subunit
+
+    first_char = next(iterator, None)
+    if first_char is None:
+        raise ParseError(
+            "was expecting a "
+            f"{'value or a ' if subunit == TyuSubUnit.VALUE else ''}register "
+            f"{englishify(subunit_number)} subunit for "
+            f"the {current_unit.name.lower()} unit, "
+            "but reached the end of file instead (1)",
+            line=-1,
+            column=-1,
+        )
+
+    start_line, start_column, char, next_char = first_char
+    basket = [char]
+
+    # advance to a non-whitespace character
+    while char.isspace():
+        start_line, start_column, char, next_char = next(iterator)
+        basket = [char]
+
+    if char == UNIT_SYNTAX[TyuUnits.COMMENT][0]:
+        raise ParseError(
+            f"was expecting a {expected_subunit.name.lower()} "
+            f"{englishify(subunit_number)} subunit for "
+            f"the {current_unit.name.lower()} unit, "
+            "but was stopped by a comment",
+            line=start_line,
+            column=start_column,
+        )
+
+    elif char == UNIT_SYNTAX[TyuUnits.SCOPE][0]:
+        return parse_scope(iterator=iterator, debug=debug)
+
+    elif (char.isdigit()) or (char == "-"):  # numeric
+        if subunit in [TyuSubUnit.REGISTER, TyuSubUnit.REGISTER_NAME]:
+            raise ParseError(
+                f"was expecting a register{'name' if subunit == TyuSubUnit.REGISTER_NAME else ''} "
+                f"{englishify(subunit_number)} subunit for "
+                f"the {current_unit.name.lower()} unit, "
+                "but reached the end of file instead (2)",
+                line=start_line,
+                column=start_column,
+            )
+
+        if char == "-" and not next_char.isdigit():
+            raise ParseError(
+                f"negated value does not precede a number digit",
+                line=start_line,
+                column=start_column,
+            )
+
+        # if the next character is not a number or a dot, then we're done
+        if (not next_char.isdigit()) and (next_char != "."):
+            # we've only consumed the one character, so its a single digit
+            try:
+                return int(char)
+
+            except ValueError:
                 raise ParseError(
-                    f"was expecting a {expected_subunit.name.lower()} "
-                    f"{englishify(subunit_number)} subunit for "
-                    f"the {current_unit.name.lower()} unit, "
-                    "but reached the end of file instead",
-                    line=line,
-                    column=column,
-                )
-
-        case TyuSubUnit.VALUE | TyuSubUnit.REGISTER | TyuSubUnit.REGISTER_NAME as subunit:
-            # either a string literal, numeric or a register
-
-            first_char = next(iterator, None)
-            if first_char is None:
-                raise ParseError(
-                    "was expecting a "
-                    f"{'value or a ' if subunit == TyuSubUnit.VALUE else ''}register "
-                    f"{englishify(subunit_number)} subunit for "
-                    f"the {current_unit.name.lower()} unit, "
-                    "but reached the end of file instead (1)",
-                    line=-1,
-                    column=-1,
-                )
-
-            start_line, start_column, char, next_char = first_char
-            basket = [char]
-
-            # advance to a non-whitespace character
-            while char.isspace():
-                start_line, start_column, char, next_char = next(iterator)
-                basket = [char]
-
-            if char == UNIT_SYNTAX[TyuUnits.COMMENT][0]:
-                raise ParseError(
-                    f"was expecting a {expected_subunit.name.lower()} "
-                    f"{englishify(subunit_number)} subunit for "
-                    f"the {current_unit.name.lower()} unit, "
-                    "but was stopped by a comment",
+                    f"could not parse numeric subunit of value '{char}' "
+                    f"for the {current_unit.name.lower()} unit",
                     line=start_line,
                     column=start_column,
                 )
 
-            elif char == UNIT_SYNTAX[TyuUnits.SCOPE][0]:
-                return parse_scope(iterator=iterator, debug=debug)
+        for line, column, char, next_char in iterator:
+            basket.append(char)
 
-            elif (char.isdigit()) or (char == "-"):  # numeric
-                if subunit in [TyuSubUnit.REGISTER, TyuSubUnit.REGISTER_NAME]:
-                    raise ParseError(
-                        f"was expecting a register{'name' if subunit == TyuSubUnit.REGISTER_NAME else ''} "
-                        f"{englishify(subunit_number)} subunit for "
-                        f"the {current_unit.name.lower()} unit, "
-                        "but reached the end of file instead (2)",
-                        line=start_line,
-                        column=start_column,
-                    )
-
-                # if the next character is not a number or a dot, then we're done
-                if (not next_char.isdigit()) and (next_char != "."):
-                    # we've only consumed the one character, so its a single digit
-                    return int(char)
-
-                for line, column, char, next_char in iterator:
-                    # if the next character is not a number or a dot, then we're done
-                    if (not next_char.isdigit()) and (next_char != "."):
-                        return (
-                            int("".join(basket))
-                            if "." not in basket
-                            else float("".join(basket))
-                        )
-                    basket.append(char)
-
-                else:
-                    stderr.write(
-                        "debug: reached end of file while parsing numeric, should this happen?\n"
-                    )
+            # if the next character is not a number or a dot, then we're done
+            if (not next_char.isdigit()) and (next_char != "."):
+                try:
                     return (
                         int("".join(basket))
                         if "." not in basket
                         else float("".join(basket))
                     )
 
-            elif char in ("'", '"'):  # string literal
-                if subunit in [TyuSubUnit.REGISTER, TyuSubUnit.REGISTER_NAME]:
+                except ValueError:
                     raise ParseError(
-                        f"was expecting a register{'name' if subunit == TyuSubUnit.REGISTER_NAME else ''} "
-                        f"{englishify(subunit_number)} subunit for "
-                        f"the {current_unit.name.lower()} unit, "
-                        "but got a string literal instead",
+                        f"could not parse numeric subunit of value '{''.join(basket)}' "
+                        f"for the {current_unit.name.lower()} unit",
                         line=start_line,
                         column=start_column,
                     )
 
-                for line, column, char, next_char in iterator:
-                    if (
-                        char == basket[0]
-                    ):  # use the same quote character to close the string
-                        return "".join(basket)
-                    else:
-                        basket.append(char)
+        else:
+            stderr.write(
+                "debug: reached end of file while parsing numeric, should this happen?\n"
+            )
+            try:
+                return (
+                    int("".join(basket)) if "." not in basket else float("".join(basket))
+                )
 
-                else:
+            except ValueError:
+                raise ParseError(
+                    f"could not parse numeric subunit of value '{''.join(basket)}' "
+                    f"for the {current_unit.name.lower()} unit",
+                    line=start_line,
+                    column=start_column,
+                )
+
+    elif char in ("'", '"'):  # string literal
+        if subunit in [TyuSubUnit.REGISTER, TyuSubUnit.REGISTER_NAME]:
+            raise ParseError(
+                f"was expecting a register{'name' if subunit == TyuSubUnit.REGISTER_NAME else ''} "
+                f"{englishify(subunit_number)} subunit for "
+                f"the {current_unit.name.lower()} unit, "
+                "but got a string literal instead",
+                line=start_line,
+                column=start_column,
+            )
+
+        for line, column, char, next_char in iterator:
+            if char == basket[0]:  # use the same quote character to close the string
+                return "".join(basket)
+            else:
+                basket.append(char)
+
+        else:
+            raise ParseError(
+                f"string was not closed with the same quote character ({basket[0]})",
+                line=start_line,
+                column=start_column,
+            )
+
+    elif char == "$":  # special register
+        for line, column, char, next_char in iterator:
+            basket.append(char)
+
+            if (not next_char.isdigit()) or (next_char != "!"):
+                try:
+                    return TyuRegister(name=int("".join(basket[1:])))
+
+                except ValueError:
                     raise ParseError(
-                        f"string was not closed with the same quote character ({basket[0]})",
+                        f"could not parse special register number '{''.join(basket)}'), "
+                        f"next character was {repr(next_char)}",
                         line=start_line,
                         column=start_column,
                     )
 
-            elif char == "$":  # special register
-                for line, column, char, next_char in iterator:
-                    basket.append(char)
+            if char == "!":  # weirdhand for 0
+                basket.append("0")
 
-                    if (not next_char.isdigit()) or (next_char != "!"):
-                        try:
-                            return int("".join(basket[1:]))
+            elif char.isdigit():
+                basket.append(char)
 
-                        except ValueError:
-                            raise ParseError(
-                                f"could not parse special register number '{''.join(basket)}'), "
-                                f"next character was {repr(next_char)}",
-                                line=start_line,
-                                column=start_column,
-                            )
+            else:
+                raise ParseError(
+                    f"special register number was not a number (found '{char}')",
+                    line=start_line,
+                    column=start_column,
+                )
 
-                    if char == "!":  # weirdhand for 0
-                        basket.append("0")
+        else:
+            stderr.write(
+                "debug: reached end of file while parsing special register, should this happen?\n"
+            )
+            return int("".join(basket[1:]))
 
-                    elif char.isdigit():
-                        basket.append(char)
+    else:  # named register
+        for line, column, char, next_char in iterator:
+            if char == "~":
+                return TyuRegister("".join(basket))
+            else:
+                basket.append(char)
 
-                    else:
-                        raise ParseError(
-                            f"special register number was not a number (found '{char}')",
-                            line=start_line,
-                            column=start_column,
-                        )
+        else:
+            raise ParseError(
+                "register value was not closed with a '~' character",
+                line=start_line,
+                column=start_column,
+            )
 
-                else:
-                    stderr.write(
-                        "debug: reached end of file while parsing special register, should this happen?\n"
-                    )
-                    return int("".join(basket[1:]))
 
-            else:  # named register
-                for line, column, char, next_char in iterator:
-                    if char == "~":
-                        return "".join(basket)
-                    else:
-                        basket.append(char)
+def _parse_subunit_type(
+    iterator: Generator[tuple[int, int, str, str], None, None],
+    current_unit: TyuUnits,
+    subunit_number: int,
+    expected_subunit: TyuSubUnit,
+    debug: bool = False,
+) -> TyuType:
+    return TyuSingleType(type=TyuTypes.NUMERIC)
 
-                else:
-                    raise ParseError(
-                        "register value was not closed with a '~' character",
-                        line=start_line,
-                        column=start_column,
-                    )
+    def _parse_inner_type(max: int = 0):
+        # TODO: finish this
+        return []
+
+    for line, column, char, next_char in iterator:
+        if char == UNIT_SYNTAX[TyuUnits.COMMENT][0]:
+            raise ParseError(
+                f"was expecting a {expected_subunit.name.lower()} "
+                f"{englishify(subunit_number)} subunit for "
+                f"the {current_unit.name.lower()} unit, "
+                "but was stopped by a comment",
+                line=line,
+                column=column,
+            )
+
+        # skip whitespace
+        if char.isspace():
+            continue
+
+        # we've hit a character
+        if char not in TYPE_SYNTAX_STARTS:
+            raise ParseError(
+                f"was expecting an uppercase type character, but got '{char}' instead",
+                line=line,
+                column=column,
+            )
+
+        match char:
+            case TyuTypes.LIST.value:
+                return TyuListType(
+                    size=-1,
+                    types=tuple(_parse_inner_type()),
+                )
+
+            case TyuTypes.FUNCTION.value:
+                return TyuFunctionType(
+                    argument=_parse_inner_type(max=1)[0],
+                    return_type=_parse_inner_type(max=1)[0],
+                )
+
+            case _:
+                return TyuSingleType(type=TYPE_SYNTAX_STARTS[char])
+
+    else:
+        raise ParseError(
+            f"was expecting a {expected_subunit.name.lower()} "
+            f"{englishify(subunit_number)} subunit for "
+            f"the {current_unit.name.lower()} unit, "
+            "but reached the end of file instead",
+            line=-1,
+            column=-1,
+        )
+
+
+def _parse_subunit(
+    iterator: Generator[tuple[int, int, str, str], None, None],
+    current_unit: TyuUnits,
+    subunit_number: int,
+    expected_subunit: TyuSubUnit | str,
+    debug: bool = False,
+) -> SubunitType:
+    match expected_subunit:
+        case TyuSubUnit.TEXT:
+            return _parse_subunit_text(
+                iterator=iterator,
+                current_unit=current_unit,
+                subunit_number=subunit_number,
+                debug=debug,
+            )
+
+        case TyuSubUnit.VALUE | TyuSubUnit.REGISTER | TyuSubUnit.REGISTER_NAME as subunit:
+            # either a string literal, numeric or a register
+            return _parse_subunit_value(
+                iterator=iterator,
+                current_unit=current_unit,
+                subunit_number=subunit_number,
+                expected_subunit=expected_subunit,
+                debug=debug,
+            )
 
         case TyuSubUnit.SCOPE:
-            first_char = next(iterator, None)
-            if first_char is None:
-                raise ParseError(
-                    "was expecting a scope, but reached the end of file instead",
-                    line=-1,
-                    column=-1,
-                )
-
-            line, column, char, _ = first_char
-
-            if char == UNIT_SYNTAX[TyuUnits.COMMENT][0]:
-                raise ParseError(
-                    f"was expecting a {expected_subunit.name.lower()} "
-                    f"{englishify(subunit_number)} subunit for "
-                    f"the {current_unit.name.lower()} unit, "
-                    "but was stopped by a comment",
-                    line=line,
-                    column=column,
-                )
-
-            if first_char != UNIT_SYNTAX[TyuUnits.SCOPE][0]:
-                raise ParseError(
-                    "was expecting the start of a scope ('('), "
-                    f"but got something else ('{first_char}') instead",
-                    column=column,
-                    line=line,
-                )
-
-            return parse_scope(iterator=iterator)
+            return _parse_scope_subunit(
+                iterator=iterator,
+                current_unit=current_unit,
+                subunit_number=subunit_number,
+                expected_subunit=expected_subunit,
+                debug=debug,
+            )
 
         case TyuSubUnit.SCOPE_INNARD:
-            assert "unreachable (attempted to parse a scope_innard subunit)"
+            assert False, "unreachable (attempted to parse a scope_innard subunit)"
 
         case TyuSubUnit.TYPE:
-            for line, column, char, next_char in iterator:
-                if char == UNIT_SYNTAX[TyuUnits.COMMENT][0]:
-                    raise ParseError(
-                        f"was expecting a {expected_subunit.name.lower()} "
-                        f"{englishify(subunit_number)} subunit for "
-                        f"the {current_unit.name.lower()} unit, "
-                        "but was stopped by a comment",
-                        line=line,
-                        column=column,
-                    )
-
-                # TODO: implement this womp womp
-                if not next_char.isupper():
-                    return "*"
+            return _parse_subunit_type(
+                iterator=iterator,
+                current_unit=current_unit,
+                subunit_number=subunit_number,
+                expected_subunit=expected_subunit,
+                debug=debug,
+            )
 
         case _:  # is a string delimiter
+            basket: list[str] = []
+
             for line, column, char, next_char in iterator:
                 if (current_unit != TyuUnits.COMMENT) and (
                     char == UNIT_SYNTAX[TyuUnits.COMMENT][0]
@@ -492,7 +624,7 @@ def parse_subunit(
                     return expected_subunit
 
                 elif (current_unit == TyuUnits.COMMENT) and (char == "\n"):
-                    return "\n"
+                    return char
 
             else:
                 if current_unit == TyuUnits.COMMENT:
@@ -505,8 +637,51 @@ def parse_subunit(
                     column=-1,
                 )
 
-    # TODO: make mypy happy
-    assert f"unreachable (did not return after parsing a subunit) - {expected_subunit}: {basket}"
+
+def _parse_scope_subunit(
+    iterator: Generator[tuple[int, int, str, str], None, None],
+    current_unit: TyuUnits,
+    subunit_number: int,
+    expected_subunit: TyuSubUnit,
+    debug: bool = False,
+) -> TyuScope:
+
+    first_char = next(iterator, None)
+    if first_char is None:
+        raise ParseError(
+            "was expecting a scope, but reached the end of file instead",
+            line=-1,
+            column=-1,
+        )
+
+    start_line, start_column, char, next_char = first_char
+    basket = [char]
+
+    # advance to a non-whitespace character
+    while char.isspace():
+        start_line, start_column, char, next_char = next(iterator)
+        basket = [char]
+
+    if char == UNIT_SYNTAX[TyuUnits.COMMENT][0]:
+        raise ParseError(
+            f"was expecting a {expected_subunit.name.lower()} "
+            f"{englishify(subunit_number)} subunit for "
+            f"the {current_unit.name.lower()} unit, "
+            "but was stopped by a comment",
+            line=start_line,
+            column=start_column,
+        )
+
+    elif char == UNIT_SYNTAX[TyuUnits.SCOPE][0]:
+        return parse_scope(iterator=iterator)
+
+    else:
+        raise ParseError(
+            "was expecting the start of a scope ('('), "
+            f"but got something else ('{first_char}') instead",
+            line=start_line,
+            column=start_column,
+        )
 
 
 # @debug_return_decorator
@@ -533,7 +708,7 @@ def parse_scope(
     for line, column, char, _ in iterator:
         if (current_unit == TyuUnits.WHITESPACE) and (char in UNIT_SYNTAX_STARTS):
             current_unit = UNIT_SYNTAX_STARTS[char]
-            # dprint(f"matched char {char} as {current_unit.name}")
+            dprint(f"matched char {char} as {current_unit.name}")
 
         if char == UNIT_SYNTAX[TyuUnits.SCOPE][2]:
             break
@@ -558,18 +733,26 @@ def parse_scope(
 
                 case TyuUnits.IF as unit:
                     # dprint(f"matched unit as {unit}")
+                    expected_subunit3 = UNIT_SYNTAX[unit][2]
+                    assert isinstance(expected_subunit3, TyuSubUnit)
                     scope.append(
                         TyuUnit(
                             unit=unit,
                             subunit1=UNIT_SYNTAX[unit][0],
-                            subunit2=parse_subunit(
+                            subunit2=_parse_subunit(
                                 iterator=iterator,
                                 current_unit=unit,
                                 subunit_number=2,
                                 expected_subunit=UNIT_SYNTAX[unit][1],
                                 debug=debug,
                             ),
-                            subunit3=parse_scope(iterator=iterator, debug=debug),
+                            subunit3=_parse_scope_subunit(
+                                iterator=iterator,
+                                current_unit=unit,
+                                subunit_number=3,
+                                expected_subunit=expected_subunit3,
+                                debug=debug,
+                            ),
                         )
                     )
                     current_unit = TyuUnits.WHITESPACE
@@ -577,7 +760,7 @@ def parse_scope(
                 case _ as unit:
                     dprint(f"matched unit as {unit}")
                     dprint(f"parsing subunit 2 ({UNIT_SYNTAX[unit][1]})")
-                    subunit2 = subunit2 = parse_subunit(
+                    subunit2 = subunit2 = _parse_subunit(
                         iterator=iterator,
                         current_unit=unit,
                         subunit_number=2,
@@ -585,7 +768,7 @@ def parse_scope(
                         debug=debug,
                     )
                     dprint(f"parsing subunit 3 ({UNIT_SYNTAX[unit][2]})")
-                    subunit3 = subunit3 = parse_subunit(
+                    subunit3 = subunit3 = _parse_subunit(
                         iterator=iterator,
                         current_unit=unit,
                         subunit_number=3,
@@ -602,7 +785,7 @@ def parse_scope(
                     )
                     current_unit = TyuUnits.WHITESPACE
 
-            dprint(f"parsed {scope[-1]}")
+            dprint(f"finished parsing unit {scope[-1].unit}")
 
         except ParseError as err:
             stderr.write(
@@ -617,7 +800,9 @@ def parse_scope(
     return TyuScope(
         # declarations=[u for u in scope if u.unit == TyuUnits.DECLARATION],
         # functions=[],
-        units=scope
+        declarations=(),
+        functions=(),
+        units=tuple(scope)
     )
 
 
@@ -643,14 +828,16 @@ def parse(source: str, debug: bool = False) -> TyuScope:
                 column += 1
 
     program_iterator = iterate_program()
+    next(
+        program_iterator
+    )  # parse_scope assumes the first character has already been consumed
     program = parse_scope(iterator=program_iterator, debug=debug)
-
-    for unit in program.units[0].subunit2.units:
-        print(unit)
 
     return program
 
 
-def analyse(program: TyuScope, debug: bool = False) -> list[str]:
+def analyse(program: TyuScope, debug: bool = False) -> tuple[str, ...]:
     """analyses for incorrect types and usages and returns a list of error messages"""
-    return []
+    # TODO: semantic analysis
+    stderr.write("error: analysis not implemented yet\n")
+    return ()

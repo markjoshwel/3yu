@@ -31,8 +31,9 @@ For more information, please refer to <http://unlicense.org/>
 
 from sys import stderr, stdin, stdout
 
-from .frontend import TyuProgram
+from .frontend import TyuScope
 
 
-def run(program: TyuProgram, debug: bool = False) -> None:
-    stderr.write("error: not implemented\n")
+def run(scope: TyuScope, debug: bool = False) -> None:
+    # TODO: interpretation
+    stderr.write("error: interpretation not implemented yet\n")
