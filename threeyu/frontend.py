@@ -101,12 +101,15 @@ class TyuTypesPart(Enum):
     TYPE_MULTIPLE = 1
     SIZE = 2
 
+
 class TyuSingleType(NamedTuple):
     type: TyuTypes
+
 
 class TyuListType(NamedTuple):
     size: int
     types: tuple[TyuTypes, ...] = ()
+
 
 class TyuFunctionType(NamedTuple):
     argument: "TyuType"
@@ -802,7 +805,7 @@ def parse_scope(
         # functions=[],
         declarations=(),
         functions=(),
-        units=tuple(scope)
+        units=tuple(scope),
     )
 
 

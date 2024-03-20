@@ -32,9 +32,9 @@ For more information, please refer to <http://unlicense.org/>
 from pathlib import Path
 from sys import argv, stderr, stdout
 
+from . import __doc__ as doc
 from .backend import run
 from .frontend import analyse, parse
-from . import __doc__ as doc
 
 
 def entry():
