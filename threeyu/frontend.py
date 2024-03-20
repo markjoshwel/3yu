@@ -71,10 +71,11 @@ class TyuUnits(Enum):
 class TyuSubUnit(Enum):
     TEXT = 0  # any text until the next unit's character as a delimiter
     REGISTER = 1  # any text until "~" OR a "#" followed by an integer
-    VALUE = 2  # integer or rational number, string, list or a scope
-    SCOPE = 3
-    SCOPE_INNARD = 4  # any text until the next unit's character as a delimiter
-    TYPE = 5  # N, I, R, C, S, L<int size><type>, F<argument type><return type>
+    REGISTER_NAME = 2  # any text until "~"; used in declarations
+    VALUE = 3  # integer or rational number, string, list or a scope
+    SCOPE = 4
+    SCOPE_INNARD = 5  # any text until the next unit's character as a delimiter
+    TYPE = 6  # N, I, R, C, S, L<int size><type>, F<argument type><return type>
 
 
 class TyuPrimitiveType(Enum):
@@ -105,7 +106,7 @@ UNIT_SYNTAX: dict[TyuUnits, tuple[str, TyuSubUnit, str | TyuSubUnit]] = {
     # | include directive     | `#`         | file path                         | `~`                               |
     TyuUnits.COMMENT: (";", TyuSubUnit.TEXT, ";"),
     TyuUnits.SCOPE: ("(", TyuSubUnit.SCOPE_INNARD, ")"),
-    TyuUnits.DECLARATION: ("d", TyuSubUnit.TEXT, TyuSubUnit.TYPE),
+    TyuUnits.DECLARATION: ("d", TyuSubUnit.REGISTER_NAME, TyuSubUnit.TYPE),
     TyuUnits.ASSIGNMENT: (":", TyuSubUnit.REGISTER, TyuSubUnit.VALUE),
     TyuUnits.INCLUDE: ("#", TyuSubUnit.TEXT, "~"),
     # | control instruction | 1st subunit | 2nd subunit                       | 3rd subunit                        |
@@ -114,7 +115,7 @@ UNIT_SYNTAX: dict[TyuUnits, tuple[str, TyuSubUnit, str | TyuSubUnit]] = {
     # | function call       | `@`         | function or register name, or `!` | register for argument, `_` if none |
     # | return              | `` ` ``     | register                          | `` ` ``                            |
     TyuUnits.IF: ("?", TyuSubUnit.VALUE, TyuSubUnit.SCOPE),
-    TyuUnits.CALL: ("@", TyuSubUnit.TEXT, TyuSubUnit.REGISTER),
+    TyuUnits.CALL: ("@", TyuSubUnit.REGISTER, TyuSubUnit.VALUE),
     TyuUnits.RETURN: ("`", TyuSubUnit.VALUE, "`"),
     # | mathematical operator | 1st subunit | 2nd subunit              | 3rd subunit              |
     # | --------------------- | ----------- | ------------------------ | ------------------------ |
@@ -228,12 +229,13 @@ def debug_return_decorator(func):
     return wrapper
 
 
-# @debug_return_decorator
+@debug_return_decorator
 def parse_subunit(
     iterator: Generator[tuple[int, int, str, str], None, None],
     current_unit: TyuUnits,
     subunit_number: int,
     expected_subunit: TyuSubUnit | str,
+    debug: bool = False,
 ) -> SubunitType:
     basket: list[str] = []
 
@@ -259,8 +261,10 @@ def parse_subunit(
                         column=column,
                     )
 
+                if current_unit == (TyuUnits.COMMENT) and (next_char == "\n"):
+                    return "".join(basket).strip()
+
             else:
-                print(f"hit else {basket=}")
                 if current_unit == TyuUnits.COMMENT:
                     return "".join(basket).strip()
 
@@ -273,8 +277,9 @@ def parse_subunit(
                     column=column,
                 )
 
-        case TyuSubUnit.VALUE | TyuSubUnit.REGISTER as subunit:
+        case TyuSubUnit.VALUE | TyuSubUnit.REGISTER | TyuSubUnit.REGISTER_NAME as subunit:
             # either a string literal, numeric or a register
+
             first_char = next(iterator, None)
             if first_char is None:
                 raise ParseError(
@@ -287,9 +292,13 @@ def parse_subunit(
                     column=-1,
                 )
 
-            basket = []
             start_line, start_column, char, next_char = first_char
-            basket.append(char)
+            basket = [char]
+
+            # advance to a non-whitespace character
+            while char.isspace():
+                start_line, start_column, char, next_char = next(iterator)
+                basket = [char]
 
             if char == UNIT_SYNTAX[TyuUnits.COMMENT][0]:
                 raise ParseError(
@@ -301,10 +310,13 @@ def parse_subunit(
                     column=start_column,
                 )
 
-            if (char.isdigit()) or (char == "-"):  # numeric
-                if subunit == TyuSubUnit.REGISTER:
+            elif char == UNIT_SYNTAX[TyuUnits.SCOPE][0]:
+                return parse_scope(iterator=iterator, debug=debug)
+
+            elif (char.isdigit()) or (char == "-"):  # numeric
+                if subunit in [TyuSubUnit.REGISTER, TyuSubUnit.REGISTER_NAME]:
                     raise ParseError(
-                        f"was expecting a register "
+                        f"was expecting a register{'name' if subunit == TyuSubUnit.REGISTER_NAME else ''} "
                         f"{englishify(subunit_number)} subunit for "
                         f"the {current_unit.name.lower()} unit, "
                         "but reached the end of file instead (2)",
@@ -338,9 +350,9 @@ def parse_subunit(
                     )
 
             elif char in ("'", '"'):  # string literal
-                if subunit == TyuSubUnit.REGISTER:
+                if subunit in [TyuSubUnit.REGISTER, TyuSubUnit.REGISTER_NAME]:
                     raise ParseError(
-                        f"was expecting a register "
+                        f"was expecting a register{'name' if subunit == TyuSubUnit.REGISTER_NAME else ''} "
                         f"{englishify(subunit_number)} subunit for "
                         f"the {current_unit.name.lower()} unit, "
                         "but got a string literal instead",
@@ -459,7 +471,8 @@ def parse_subunit(
                     )
 
                 # TODO: implement this womp womp
-                return "*"
+                if not next_char.isupper():
+                    return "*"
 
         case _:  # is a string delimiter
             for line, column, char, next_char in iterator:
@@ -477,7 +490,7 @@ def parse_subunit(
 
                 if char == expected_subunit:
                     return expected_subunit
-                
+
                 elif (current_unit == TyuUnits.COMMENT) and (char == "\n"):
                     return "\n"
 
@@ -492,6 +505,7 @@ def parse_subunit(
                     column=-1,
                 )
 
+    # TODO: make mypy happy
     assert f"unreachable (did not return after parsing a subunit) - {expected_subunit}: {basket}"
 
 
@@ -505,8 +519,8 @@ def parse_scope(
     will consume the ending scope delimiter
     """
 
-    line: int = 1
-    column: int = 1
+    line: int = 0
+    column: int = 0
     current_unit: TyuUnits = TyuUnits.WHITESPACE
     scope: list[TyuUnit] = []
 
@@ -514,20 +528,24 @@ def parse_scope(
         if debug:
             stderr.write(f"debug: line {line}, column {column}: {message}\n")
 
+    # dprint("entering scope")
+
     for line, column, char, _ in iterator:
         if (current_unit == TyuUnits.WHITESPACE) and (char in UNIT_SYNTAX_STARTS):
             current_unit = UNIT_SYNTAX_STARTS[char]
-            # stderr.write(f"debug: matched char {char} as {current_unit.name}\n")
-            dprint(f"matched char {char} as {current_unit.name}")
+            # dprint(f"matched char {char} as {current_unit.name}")
+
+        if char == UNIT_SYNTAX[TyuUnits.SCOPE][2]:
+            break
 
         try:
             match current_unit:
                 case TyuUnits.WHITESPACE as unit:
-                    dprint(f"matched unit as {unit}")
+                    # dprint(f"matched unit as {unit}")
                     continue
 
                 case TyuUnits.SCOPE as unit:
-                    dprint(f"matched unit as {unit}")
+                    # dprint(f"matched unit as {unit}")
                     scope.append(
                         TyuUnit(
                             unit=unit,
@@ -539,7 +557,7 @@ def parse_scope(
                     current_unit = TyuUnits.WHITESPACE
 
                 case TyuUnits.IF as unit:
-                    dprint(f"matched unit as {unit}")
+                    # dprint(f"matched unit as {unit}")
                     scope.append(
                         TyuUnit(
                             unit=unit,
@@ -549,46 +567,37 @@ def parse_scope(
                                 current_unit=unit,
                                 subunit_number=2,
                                 expected_subunit=UNIT_SYNTAX[unit][1],
+                                debug=debug,
                             ),
                             subunit3=parse_scope(iterator=iterator, debug=debug),
                         )
                     )
                     current_unit = TyuUnits.WHITESPACE
 
-                # case TyuUnits.COMMENT as unit:
-                #     # dprint(f"matched unit as {unit}")
-                #     scope.append(
-                #         TyuUnit(
-                #             unit=unit,
-                #             subunit1=UNIT_SYNTAX[unit][0],
-                #             subunit2=parse_subunit(
-                #                 iterator=iterator,
-                #                 current_unit=unit,
-                #                 subunit_number=2,
-                #                 expected_subunit=UNIT_SYNTAX[unit][1],
-                #             ),
-                #             subunit3=UNIT_SYNTAX[unit][2],
-                #         )
-                #     )
-
                 case _ as unit:
                     dprint(f"matched unit as {unit}")
+                    dprint(f"parsing subunit 2 ({UNIT_SYNTAX[unit][1]})")
+                    subunit2 = subunit2 = parse_subunit(
+                        iterator=iterator,
+                        current_unit=unit,
+                        subunit_number=2,
+                        expected_subunit=UNIT_SYNTAX[unit][1],
+                        debug=debug,
+                    )
+                    dprint(f"parsing subunit 3 ({UNIT_SYNTAX[unit][2]})")
+                    subunit3 = subunit3 = parse_subunit(
+                        iterator=iterator,
+                        current_unit=unit,
+                        subunit_number=3,
+                        expected_subunit=UNIT_SYNTAX[unit][2],
+                        debug=debug,
+                    )
                     scope.append(
                         TyuUnit(
                             unit=unit,
                             subunit1=UNIT_SYNTAX[unit][0],
-                            subunit2=parse_subunit(
-                                iterator=iterator,
-                                current_unit=unit,
-                                subunit_number=2,
-                                expected_subunit=UNIT_SYNTAX[unit][1],
-                            ),
-                            subunit3=parse_subunit(
-                                iterator=iterator,
-                                current_unit=unit,
-                                subunit_number=3,
-                                expected_subunit=UNIT_SYNTAX[unit][2],
-                            ),
+                            subunit2=subunit2,
+                            subunit3=subunit3,
                         )
                     )
                     current_unit = TyuUnits.WHITESPACE
@@ -601,6 +610,8 @@ def parse_scope(
                 f"column {err.column}: {err}\n"
             )
             exit(2)
+
+    # dprint("leaving scope")
 
     # TODO: figure out which units are declarations and which are functions once parsing types is implemented
     return TyuScope(
@@ -621,7 +632,8 @@ def parse(source: str, debug: bool = False) -> TyuScope:
         yield 1, 0, UNIT_SYNTAX[TyuUnits.SCOPE][0], ""
         for idx, character in enumerate(source):
             next_char = source[idx + 1] if (idx < (len(source) - 1)) else ""
-            # stderr.write(f"\t\tat {line=}\t{column=}\t{character=}\t{next_char=}\n")
+            # if debug:
+            #     stderr.write(f"\tat {line=}\t{column=}\t{character=}\t{next_char=}\n")
             yield line, column, character, next_char
 
             if character == "\n":
