@@ -262,7 +262,7 @@ f add3~ (
 
    + a  b
    + $0 c
-   ` $0 `
+   ; implicit $0 return when exiting a scope without explicit return
 )
 
 ; because of currying, you call the function like this
@@ -313,7 +313,7 @@ d fib~ FII
    ` $0 `
 )
 
-@ stdout~ ( @ fib~ 32 ` $0 ` )
+@ stdout~ ( @ fib~ 32 )
 ```
 
 ```python
@@ -356,16 +356,16 @@ d sum~ FL_NN
 
    @ sum~  $0          ; $0 = sum($0)
    + head~ $0          ; $0 = head~ + sum($0)
-   ` $0 `              ; return $0
+   ; implicit return
 )
 
-d list~ L3N
-: list~ 1
-: $0 2
-: $0 3
-: list~ $0
+d sum_list~ L3N
++ sum_list~ 1
++ $0        2
++ $0        3
+: list~     $0
 
-@ stdout~ ( @ sum~ list~ ` $0 ` )  ; prints 6
+@ stdout~ ( @ sum~ list~ )  ; prints 6
 ```
 
 ```python
@@ -375,5 +375,9 @@ def sum(nums: list[int | float]) -> int:
 
     return nums[0] + sum(nums[1:])
 
-print(sum([1, 2, 3]))
+sum_list = []
+sum_list.append(1)
+sum_list.append(2)
+sum_list.append(3)
+print(sum(sum_list))
 ```

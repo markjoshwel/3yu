@@ -23,10 +23,10 @@ d sum~ FL_NN
    ; implicit return
 )
 
-d sum_list~ L3N
-+ sum_list~ 1
-+ $0        2
-+ $0        3
-: list~     $0
+d list~ L3N
+: list~ 1
+: $0    2
+: $0    3
+: list~ $0
 
 @ stdout~ ( @ sum~ list~ )  ; prints 6
