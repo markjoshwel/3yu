@@ -31,7 +31,7 @@ For more information, please refer to <http://unlicense.org/>
 
 from enum import Enum
 from sys import stderr
-from typing import Any, Generator, NamedTuple, Optional
+from typing import Any, Generator, NamedTuple
 
 
 class TyuUnits(Enum):
@@ -108,15 +108,21 @@ class TyuSingleType(NamedTuple):
 
 class TyuListType(NamedTuple):
     size: int
-    types: tuple[TyuTypes, ...] = ()
-
+    types: tuple["TyuType", ...] = ()
+    type: TyuTypes = TyuTypes.LIST
 
 class TyuFunctionType(NamedTuple):
     argument: "TyuType"
     return_type: "TyuType"
+    type: TyuTypes = TyuTypes.FUNCTION
 
 
 TyuType = TyuSingleType | TyuListType | TyuFunctionType
+
+
+class TyuCompileTimeType(NamedTuple):
+    type: TyuListType | TyuSingleType
+    value: str
 
 
 TYPE_SYNTAX: dict[
@@ -222,7 +228,6 @@ UNIT_SYNTAX_STARTS: dict[str, TyuUnits] = {v[0]: k for k, v in UNIT_SYNTAX.items
 
 class TyuScope(NamedTuple):
     declarations: tuple["TyuUnit", ...] = ()
-    functions: tuple["TyuUnit", ...] = ()
     units: tuple["TyuUnit", ...] = ()
 
 
@@ -230,11 +235,11 @@ class TyuRegister(NamedTuple):
     name: int | str  # ints for special registers, strings for named registers
 
 
-SubunitType = str | int | float | TyuScope | TyuType | TyuRegister
+SubunitType = str | int | float | TyuScope | TyuType | TyuCompileTimeType | TyuRegister
 
 
 class TyuUnit(NamedTuple):
-    unit: TyuUnits
+    type: TyuUnits
     subunit1: str
     subunit2: SubunitType
     subunit3: SubunitType
@@ -270,8 +275,11 @@ def englishify(subunit_number: int) -> str:
             return f"{subunit_number}th"
 
 
+ProgramIterator = Generator[tuple[int, int, str, str], None, None]
+
+
 def _parse_subunit_text(
-    iterator: Generator[tuple[int, int, str, str], None, None],
+    iterator: ProgramIterator,
     current_unit: TyuUnits,
     subunit_number: int,
     debug: bool = False,
@@ -312,7 +320,7 @@ def _parse_subunit_text(
 
 
 def _parse_subunit_value(
-    iterator: Generator[tuple[int, int, str, str], None, None],
+    iterator: ProgramIterator,
     current_unit: TyuUnits,
     subunit_number: int,
     expected_subunit: TyuSubUnit,
@@ -497,18 +505,210 @@ def _parse_subunit_value(
             )
 
 
+# TODO: complex types that cannot be determine at parse time (e.g. list of unknown length)
+#       are currently unsupported
+#       the idea here will be to return a special type that can be resolved at a later time
+#
+#       for this, _parse_subunit_type should be changed to read the whole type based on the
+#       rule of types being a single word only having either uppercase characters, numbers
+#       or underscores
+#
+#       if the type has an underscore in it, then we just return the TyuCompileTimeType
+#       with the type (either a func or a list) and the value being the whole type string
+#
+#       else, we give it to _parse_type which should now be its own function that takes
+#       a string and returns a TyuType, rather than operating on a ProgramIterator
+
+
 def _parse_subunit_type(
-    iterator: Generator[tuple[int, int, str, str], None, None],
+    iterator: ProgramIterator,
     current_unit: TyuUnits,
     subunit_number: int,
     expected_subunit: TyuSubUnit,
     debug: bool = False,
 ) -> TyuType:
-    return TyuSingleType(type=TyuTypes.NUMERIC)
+    # return TyuSingleType(type=TyuTypes.NUMERIC)
 
-    def _parse_inner_type(max: int = 0):
-        # TODO: finish this
-        return []
+    def _parse_type(
+        first_char: str,
+        iterator: ProgramIterator,
+        line: int,
+        column: int,
+        max_n: int = 0,
+    ) -> tuple[TyuType, ...]:
+        if first_char not in TYPE_SYNTAX_STARTS:
+            raise ParseError(
+                "was firstly expecting an uppercase type character, "
+                f"but got '{first_char}' instead",
+                line=line,
+                column=column,
+            )
+
+        def _iterator_overrider() -> ProgramIterator:
+            yield line, column, first_char, ""
+            for i, t in enumerate(iterator, start=1):
+                yield t
+
+        new_iterator = _iterator_overrider()
+        type_basket: list[TyuType] = []
+
+        for line, column, char, next_char in new_iterator:
+            match char:
+                case TyuTypes.LIST.value:
+                    if debug:
+                        stderr.write(
+                            f"debug: line {line}, column {column}: "
+                            f"parsing {repr(char)} ({TYPE_SYNTAX_STARTS[first_char]})\n"
+                        )
+                    
+                    size_basket: list[str] = []
+                    list_size: int | None = None
+
+                    for line, column, char, next_char in iterator:
+                        size_basket.append(char)
+
+                        if not char.isdigit():
+                            if char == "_":
+                                list_size = (
+                                    -1
+                                )  # special size used for unknown length lists (_)
+                                break
+
+                            else:
+                                raise ParseError(
+                                    f"was expecting a list size number, "
+                                    f"but got '{char}' instead",
+                                    line=line,
+                                    column=column,
+                                )
+
+                        if not next_char.isdigit() and list_size is None:
+                            list_size = int("".join(size_basket))
+                            break
+
+                    else:
+                        raise ParseError(
+                            f"was expecting a list size number, "
+                            "but reached the end of file instead",
+                            line=line,
+                            column=column,
+                        )
+
+                    next_iteration = next(new_iterator, None)
+                    if next_iteration is None:
+                        raise ParseError(
+                            "was expecting a list size number, "
+                            "but reached the end of file instead",
+                            line=-1,
+                            column=-1,
+                        )
+                    
+                    if debug:
+                        stderr.write(
+                            f"debug: line {line}, column {column}: "
+                            "recursing for list inner type\n"
+                        )
+
+                    type_basket.append(
+                        TyuListType(
+                            size=list_size,
+                            types=_parse_type(
+                                first_char=next_iteration[2],
+                                iterator=iterator,
+                                line=next_iteration[0],
+                                column=next_iteration[1],
+                            ),
+                        ),
+                    )
+
+                case TyuTypes.FUNCTION.value:
+                    if debug:
+                        stderr.write(
+                            f"debug: line {line}, column {column}: "
+                            f"parsing {repr(char)} ({TYPE_SYNTAX_STARTS[first_char]})\n"
+                        )
+
+                    next_iteration = next(new_iterator, None)
+                    if next_iteration is None:
+                        raise ParseError(
+                            "was expecting an argument type for the function type, "
+                            "but reached the end of file instead",
+                            line=-1,
+                            column=-1,
+                        )
+                    
+                    if debug:
+                        stderr.write(
+                            f"debug: line {line}, column {column}: "
+                            "recursing for argument type\n"
+                        )
+                    
+                    argument = _parse_type(
+                        first_char=next_iteration[2],
+                        iterator=iterator,
+                        line=next_iteration[0],
+                        column=next_iteration[1],
+                        max_n=1,
+                    )[0]
+
+                    next_iteration = next(new_iterator, None)
+                    if next_iteration is None:
+                        raise ParseError(
+                            "was expecting a return type for the function type, "
+                            "but reached the end of file instead",
+                            line=-1,
+                            column=-1,
+                        )
+                    
+                    if debug:
+                        stderr.write(
+                            f"debug: line {line}, column {column}: "
+                            "recursing for return type\n"
+                        )
+                    
+                    return_type = _parse_type(
+                        first_char=next_iteration[2],
+                        iterator=iterator,
+                        line=next_iteration[0],
+                        column=next_iteration[1],
+                        max_n=1,
+                    )[0]
+
+                    type_basket.append(
+                        TyuFunctionType(
+                            argument=argument,
+                            return_type=return_type,
+                        ),
+                    )
+
+                case _ as possible_type:
+                    if possible_type not in TYPE_SYNTAX_STARTS:
+                        raise ParseError(
+                            f"was expecting an uppercase type character, "
+                            f"but got '{possible_type}' instead",
+                            line=line,
+                            column=column,
+                        )
+
+                    if debug:
+                        stderr.write(
+                            f"debug: line {line}, column {column}: "
+                            f"parsing {repr(char)} ({TYPE_SYNTAX_STARTS[first_char]})\n"
+                        )
+
+                    type_basket.append(
+                        TyuSingleType(type=TYPE_SYNTAX_STARTS[first_char]),
+                    )
+
+            if (max_n >= 1) and (len(type_basket) >= max_n):
+                return tuple(type_basket)
+
+        else:
+            raise ParseError(
+                f"was expecting a type character, " "but reached the end of file instead",
+                line=-1,
+                column=-1,
+            )
 
     for line, column, char, next_char in iterator:
         if char == UNIT_SYNTAX[TyuUnits.COMMENT][0]:
@@ -533,21 +733,14 @@ def _parse_subunit_type(
                 column=column,
             )
 
-        match char:
-            case TyuTypes.LIST.value:
-                return TyuListType(
-                    size=-1,
-                    types=tuple(_parse_inner_type()),
-                )
-
-            case TyuTypes.FUNCTION.value:
-                return TyuFunctionType(
-                    argument=_parse_inner_type(max=1)[0],
-                    return_type=_parse_inner_type(max=1)[0],
-                )
-
-            case _:
-                return TyuSingleType(type=TYPE_SYNTAX_STARTS[char])
+        else:
+            return _parse_type(
+                first_char=char,
+                iterator=iterator,
+                line=line,
+                column=column,
+                max_n=1,
+            )[0]
 
     else:
         raise ParseError(
@@ -561,7 +754,7 @@ def _parse_subunit_type(
 
 
 def _parse_subunit(
-    iterator: Generator[tuple[int, int, str, str], None, None],
+    iterator: ProgramIterator,
     current_unit: TyuUnits,
     subunit_number: int,
     expected_subunit: TyuSubUnit | str,
@@ -642,7 +835,7 @@ def _parse_subunit(
 
 
 def _parse_scope_subunit(
-    iterator: Generator[tuple[int, int, str, str], None, None],
+    iterator: ProgramIterator,
     current_unit: TyuUnits,
     subunit_number: int,
     expected_subunit: TyuSubUnit,
@@ -676,7 +869,7 @@ def _parse_scope_subunit(
         )
 
     elif char == UNIT_SYNTAX[TyuUnits.SCOPE][0]:
-        return parse_scope(iterator=iterator)
+        return parse_scope(iterator=iterator, debug=debug)
 
     else:
         raise ParseError(
@@ -687,9 +880,8 @@ def _parse_scope_subunit(
         )
 
 
-# @debug_return_decorator
 def parse_scope(
-    iterator: Generator[tuple[int, int, str, str], None, None],
+    iterator: ProgramIterator,
     debug: bool = False,
 ) -> TyuScope:
     """
@@ -706,7 +898,7 @@ def parse_scope(
         if debug:
             stderr.write(f"debug: line {line}, column {column}: {message}\n")
 
-    # dprint("entering scope")
+    # part 1: lexical analysis
 
     for line, column, char, _ in iterator:
         if (current_unit == TyuUnits.WHITESPACE) and (char in UNIT_SYNTAX_STARTS):
@@ -723,10 +915,10 @@ def parse_scope(
                     continue
 
                 case TyuUnits.SCOPE as unit:
-                    # dprint(f"matched unit as {unit}")
+                    dprint(f"matched unit as {unit} - {UNIT_SYNTAX[unit]}")
                     scope.append(
                         TyuUnit(
-                            unit=unit,
+                            type=unit,
                             subunit1=char,
                             subunit2=parse_scope(iterator=iterator, debug=debug),
                             subunit3=str(UNIT_SYNTAX[unit][2]),
@@ -735,12 +927,12 @@ def parse_scope(
                     current_unit = TyuUnits.WHITESPACE
 
                 case TyuUnits.IF as unit:
-                    # dprint(f"matched unit as {unit}")
+                    dprint(f"matched unit as {unit} - {UNIT_SYNTAX[unit]}")
                     expected_subunit3 = UNIT_SYNTAX[unit][2]
                     assert isinstance(expected_subunit3, TyuSubUnit)
                     scope.append(
                         TyuUnit(
-                            unit=unit,
+                            type=unit,
                             subunit1=UNIT_SYNTAX[unit][0],
                             subunit2=_parse_subunit(
                                 iterator=iterator,
@@ -763,7 +955,7 @@ def parse_scope(
                 case _ as unit:
                     dprint(f"matched unit as {unit}")
                     dprint(f"parsing subunit 2 ({UNIT_SYNTAX[unit][1]})")
-                    subunit2 = subunit2 = _parse_subunit(
+                    subunit2 = _parse_subunit(
                         iterator=iterator,
                         current_unit=unit,
                         subunit_number=2,
@@ -771,7 +963,7 @@ def parse_scope(
                         debug=debug,
                     )
                     dprint(f"parsing subunit 3 ({UNIT_SYNTAX[unit][2]})")
-                    subunit3 = subunit3 = _parse_subunit(
+                    subunit3 = _parse_subunit(
                         iterator=iterator,
                         current_unit=unit,
                         subunit_number=3,
@@ -780,7 +972,7 @@ def parse_scope(
                     )
                     scope.append(
                         TyuUnit(
-                            unit=unit,
+                            type=unit,
                             subunit1=UNIT_SYNTAX[unit][0],
                             subunit2=subunit2,
                             subunit3=subunit3,
@@ -788,7 +980,7 @@ def parse_scope(
                     )
                     current_unit = TyuUnits.WHITESPACE
 
-            dprint(f"finished parsing unit {scope[-1].unit}")
+            dprint(f"finished parsing unit {scope[-1].type}")
 
         except ParseError as err:
             stderr.write(
@@ -797,14 +989,10 @@ def parse_scope(
             )
             exit(2)
 
-    # dprint("leaving scope")
+    # part 2: auto curry any functions
 
-    # TODO: figure out which units are declarations and which are functions once parsing types is implemented
     return TyuScope(
-        # declarations=[u for u in scope if u.unit == TyuUnits.DECLARATION],
-        # functions=[],
         declarations=(),
-        functions=(),
         units=tuple(scope),
     )
 
@@ -812,7 +1000,7 @@ def parse_scope(
 def parse(source: str, debug: bool = False) -> TyuScope:
     """parses a 3yu program"""
 
-    def iterate_program() -> Generator[tuple[int, int, str, str], None, None]:
+    def iterate_program() -> ProgramIterator:
         line: int = 1
         column: int = 1
 
