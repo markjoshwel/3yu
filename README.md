@@ -30,22 +30,22 @@ there are two internal phases when running or compiling 3yu code:
 - [ ] **stage1** ~~compiler~~ interpreter  
        “the start of the end”
 
-      ```text
-      $ python stage1/3yu.py examples/sum.3yu
-      6
-      ```
+    ```text
+    $ python stage1/3yu.py examples/sum.3yu
+    6
+    ```
 
-  - phase1 and phase2a interpreter
+  - phase1 frontend and phase2a interpreter backend
     written in python
 
 - [ ] [the **data processing counter-language**](#the-data-processing-counter-language)  
        “thank god it's readable”
 
-      ```text
-      $ python dpc/dpc.py examples/sum.dpc > sum.3yu
-      $ python stage1/3yu.py sum.3yu
-      6
-      ```
+    ```text
+    $ python dpc/dpc.py examples/sum.dpc > sum.3yu
+    $ python stage1/3yu.py sum.3yu
+    6
+    ```
 
   - [ ] transpiler written in python
 
@@ -54,17 +54,29 @@ there are two internal phases when running or compiling 3yu code:
 - [ ] **stage2** compiler  
        “why is it self-compiled”
 
-      ```text
-      $ cat examples/sum.3yu > 3yu
-      6
-      $ cat examples/sum.dpc > 3yu --compile > 3yu.zig && zig build-exe 3yu.zig
-      $ ./sum
-      6
-      ```
+    ```text
+    # building the stage2 compiler
+    
+    # transpile the stage2 compiler into 3yu
+    python dpc/dpc.py stage2/3yu.dpc > 3yu.3yu
+    
+    # self-compile the stage2 compiler into zig using the stage1 interpreter
+    cat 3yu.3yu > python stage1/3yu.py 3yu.3yu --compile > 3yu.zig
+    
+    # compile the generated zig code into an executable
+    zig build-exe 3yu.zig
+    ```
 
-  - phase1 and phase2a interpreter + phase 2b compiler
-    written in [dpc](#the-data-processing-counter-language)  
-    compiled with the dpc stage2 compiler via the python stage1 interpreter
+    ```text
+    $ cat examples/sum.3yu > ./3yu
+    6
+    $ cat examples/sum.dpc > ./3yu --compile > 3yu.zig && zig build-exe 3yu.zig
+    $ ./sum
+    6
+    ```
+
+  - phase1 3yu + dpc frontend and phase2 interpreter + compiler backend
+    written in [dpc](#the-data-processing-counter-language)
 
 ## the data processing counter-language
 
