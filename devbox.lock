@@ -1,0 +1,46 @@
+{
+  "lockfile_version": "1",
+  "packages": {
+    "python3@latest": {
+      "last_modified": "2024-04-19T21:36:04Z",
+      "plugin_version": "0.0.3",
+      "resolved": "github:NixOS/nixpkgs/92d295f588631b0db2da509f381b4fb1e74173c5#python3",
+      "source": "devbox-search",
+      "version": "3.11.9",
+      "systems": {
+        "aarch64-darwin": {
+          "store_path": "/nix/store/kqsqlfvvr4gr3q83vl43gprk47rbsc5d-python3-3.11.9"
+        },
+        "aarch64-linux": {
+          "store_path": "/nix/store/6n45ny7frbmv2ha302da9z440dq2nbna-python3-3.11.9"
+        },
+        "x86_64-darwin": {
+          "store_path": "/nix/store/d0lpzyjad99g4rm84d4mj3mw1iq8hl03-python3-3.11.9"
+        },
+        "x86_64-linux": {
+          "store_path": "/nix/store/glfr70gi7hfaj50mwj2431p8bg60fhqw-python3-3.11.9"
+        }
+      }
+    },
+    "typst-lsp@latest": {
+      "last_modified": "2024-04-19T21:36:04Z",
+      "resolved": "github:NixOS/nixpkgs/92d295f588631b0db2da509f381b4fb1e74173c5#typst-lsp",
+      "source": "devbox-search",
+      "version": "0.13.0",
+      "systems": {
+        "aarch64-darwin": {
+          "store_path": "/nix/store/iycwn41nya7gjzj9v6f2q8zh1dv46b9h-typst-lsp-0.13.0"
+        },
+        "aarch64-linux": {
+          "store_path": "/nix/store/myx39qrzql9pwhyfwl4n4mp0ff4lk91g-typst-lsp-0.13.0"
+        },
+        "x86_64-darwin": {
+          "store_path": "/nix/store/yakcpaz02s6i4lbiy9sxwil124yivbps-typst-lsp-0.13.0"
+        },
+        "x86_64-linux": {
+          "store_path": "/nix/store/psvch63l3zscyyf7pigb7kc3kr816zsq-typst-lsp-0.13.0"
+        }
+      }
+    }
+  }
+}
