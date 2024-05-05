@@ -98,29 +98,30 @@ will be translated into the following 3yu code with `3yu -t`:
 ```tyu
 d sum~ FL_NN ; sum.dpc:1:1 ;
 : sum~ (
-   ?
-   (
+   : nums~ $1
+   ? (
     @ len~ nums~ ; sum.dpc:2:25 ;
     = $0 0
-   )
-   (
+   ) (
     `0` ; sum.dpc: ;
    )
-   + ; sum.dpc:3:3 ;
-   (
+   + (
+      ; sum.dpc:3:3 ;
       @ index~ nums~ ; sum.dpc:3:3 ;
       @ ! 0
-   )
-   (
+   ) (
       @ slice~ nums~ ; sum.dpc:3:18 ;
       @ ! 1
       @ sum~ $0
    )
 )
-@ stdout~ (@sum~( ; sum.dpc:6:1 ;
-   d _sum_6_12~ L3N ; sum.dpc:6:12 ;
-   + _sum_6_12~ 1
-   + $0 2
-   + $0 3
-))
+@ stdout~ (
+   @ sum~ (
+      ; sum.dpc:6:1 ;
+      d _sum_6_12~ L3N ; sum.dpc:6:12 ;
+      + _sum_6_12~ 1
+      + $0 2
+      + $0 3
+   )
+)
 ```
