@@ -4,14 +4,18 @@ a horrible, almost pure-functional esoteric language \
 made with execution units that are three subunits long
 
 ```tyu
-@ stdout~ ( "Hello, world!" )
+@ stdout~ (
+   d message~ S
+   : message~ "don't be sad. the time is coming."
+   + message~ "\nand then we'll rest."
+)
 ```
 
 there are two internal phases when running or compiling 3yu code:
 
 - **phase1**: analysis
 
-  - lexical analysis  
+  - parsing  
     (into an abstract syntax tree)
 
   - semantic analysis  
@@ -85,7 +89,7 @@ an alternative frontend to 3yu
 firstly written in python before being rewritten in dpc
 
 ```dpc
-sum: func[nums: list[_ numeric]] -> numeric = (
+sum: func[nums: List[_ Numeric]] -> Numeric = (
    if (len(nums) == 0) (return 0)
    nums[0] + sum(nums[1:])
 )
@@ -99,26 +103,27 @@ will be translated into the following 3yu code with `3yu -t`:
 d sum~ FL_NN ; sum.dpc:1:1 ;
 : sum~ (
    : nums~ $1
-   ? (
-    @ len~ nums~ ; sum.dpc:2:25 ;
-    = $0 0
-   ) (
-    `0` ; sum.dpc: ;
+   ? ( ; sum.dpc:2:7 ;
+      @ len~ nums~ ; sum.dpc:2:8 ;
+      = $0 0
+   ) ( ; sum.dpc:2: ;
+      ` 0 ` ; sum.dpc:2:25 ;
    )
-   + (
-      ; sum.dpc:3:3 ;
-      @ index~ nums~ ; sum.dpc:3:3 ;
+   + ( ; sum.dpc:3:4 ;
+      @ index~ nums~ ; sum.dpc:3:8 ;
       @ ! 0
-   ) (
-      @ slice~ nums~ ; sum.dpc:3:18 ;
+   ) ( ; sum.dpc:3:14 ;
+      @ slice~ nums~ ; sum.dpc:3:22 ;
+      @ ! 1
+      @ ! ( @ len~ nums~ )
       @ ! 1
       @ sum~ $0
    )
 )
-@ stdout~ (
-   @ sum~ (
-      ; sum.dpc:6:1 ;
-      d _sum_6_12~ L3N ; sum.dpc:6:12 ;
+
+@ stdout~ ( ; sum.dpc:6:7 ;
+   @ sum~ ( ; sum.dpc:6:8 ;
+      d _sum_6_12~ L3I ; sum.dpc:6:12 ;
       + _sum_6_12~ 1
       + $0 2
       + $0 3
