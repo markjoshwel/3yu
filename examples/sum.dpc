@@ -1,0 +1,6 @@
+sum: func[nums: List[_ Numeric]] -> Numeric = (
+   if (len(nums) == 0) (return 0)
+   nums[0] + sum(nums[1:])
+)
+
+stdout(sum([1, 2, 3]))

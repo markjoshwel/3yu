@@ -1,0 +1,5 @@
+@ stdout~ (
+   d message~ S
+   : message~ "don't be sad. the time is coming."
+   + message~ "\nand then we'll rest."
+)
