@@ -1,7 +1,9 @@
 {
   "packages": [
-    "python3@latest",
-    "typst-lsp@latest"
+    "typst-lsp@latest",
+    "python312@latest",
+    "zls@latest",
+    "zig@latest"
   ],
   "shell": {
     "init_hook": [
