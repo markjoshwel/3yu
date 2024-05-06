@@ -58,3 +58,30 @@ logical      : ( "&" | "|" | "!" | "^" | "7" | "\\" | "1" | "6" )
                ( register | value )
                ( register | value ) ;
 ```
+
+== Built-in Functions
+
+- mathematical
+  - `abs`
+  - `ceil`
+  - `cos`
+  - `exp`
+  - `exp2`
+  - `floor`
+  - `log`
+  - `log10`
+  - `log2`
+  - `max`
+  - `min`
+  - `round`
+  - `sin`
+  - `tan`
+  - `trunc`
+- input/output
+  - `stderr`
+  - `stdin`
+  - `stdout`
+  - `read`
+  - `write`
+- others
+  - `as`
