@@ -1,0 +1,6 @@
+.devbox
+.ruff_cache
+.mypy_cache
+.github
+*/__pycache__
+build
