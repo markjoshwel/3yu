@@ -102,10 +102,10 @@ will be translated into the following 3yu code with `3yu -t`:
 ```tyu
 d sum~ FL_NN ; sum.dpc:1:1 ;
 : sum~ (
-   : nums~ $1
+   : nums~ $1$
    ? ( ; sum.dpc:2:7 ;
       @ len~ nums~ ; sum.dpc:2:8 ;
-      = $0 0
+      = $0$ 0
    ) ( ; sum.dpc:2: ;
       ` 0 ` ; sum.dpc:2:25 ;
    )
@@ -117,7 +117,7 @@ d sum~ FL_NN ; sum.dpc:1:1 ;
       @ ! 1
       @ ! ( @ len~ nums~ )
       @ ! 1
-      @ sum~ $0
+      @ sum~ $0$
    )
 )
 
@@ -125,8 +125,8 @@ d sum~ FL_NN ; sum.dpc:1:1 ;
    @ sum~ ( ; sum.dpc:6:8 ;
       d _sum_6_12~ L3I ; sum.dpc:6:12 ;
       + _sum_6_12~ 1
-      + $0 2
-      + $0 3
+      + $0$ 2
+      + $0$ 3
    )
 )
 ```
