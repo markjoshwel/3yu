@@ -1,6 +1,26 @@
 {
   "lockfile_version": "1",
   "packages": {
+    "mypy@latest": {
+      "last_modified": "2024-04-19T21:36:04Z",
+      "resolved": "github:NixOS/nixpkgs/92d295f588631b0db2da509f381b4fb1e74173c5#mypy",
+      "source": "devbox-search",
+      "version": "1.9.0",
+      "systems": {
+        "aarch64-darwin": {
+          "store_path": "/nix/store/b8fnr9kr26cjhjv2byxaagfy1nck1l5m-python3.11-mypy-1.9.0"
+        },
+        "aarch64-linux": {
+          "store_path": "/nix/store/2xs52gpmfjpslpch0chnxrx99i6zvcrw-python3.11-mypy-1.9.0"
+        },
+        "x86_64-darwin": {
+          "store_path": "/nix/store/3krh67jcp9g4qm32bf4d8b172cxgnhsc-python3.11-mypy-1.9.0"
+        },
+        "x86_64-linux": {
+          "store_path": "/nix/store/nhsd45nxcr7z0znn87b3bfwzdfk0nzjb-python3.11-mypy-1.9.0"
+        }
+      }
+    },
     "python312@latest": {
       "last_modified": "2024-04-19T21:36:04Z",
       "plugin_version": "0.0.3",
@@ -19,6 +39,26 @@
         },
         "x86_64-linux": {
           "store_path": "/nix/store/m51f0kclg01xdc0mjxqs5cpyaxqbqhg5-python3-3.12.3"
+        }
+      }
+    },
+    "ruff@latest": {
+      "last_modified": "2024-04-28T05:04:40Z",
+      "resolved": "github:NixOS/nixpkgs/9516f3c963708933abe984df94a925af38916237#ruff",
+      "source": "devbox-search",
+      "version": "0.4.2",
+      "systems": {
+        "aarch64-darwin": {
+          "store_path": "/nix/store/8wf85nmacmr7n6v19ri2i85rdwiml6zv-ruff-0.4.2"
+        },
+        "aarch64-linux": {
+          "store_path": "/nix/store/gz957pfq8zz6bnahh90904ciss7x1w46-ruff-0.4.2"
+        },
+        "x86_64-darwin": {
+          "store_path": "/nix/store/wl9cw0xczys1frq4wvb28mrh3y3xgqp5-ruff-0.4.2"
+        },
+        "x86_64-linux": {
+          "store_path": "/nix/store/hby03blfglcw8mjw4140n2ddq3q3j0hx-ruff-0.4.2"
         }
       }
     },

@@ -3,7 +3,9 @@
     "typst-lsp@latest",
     "python312@latest",
     "zls@latest",
-    "zig@latest"
+    "zig@latest",
+    "ruff@latest",
+    "mypy@latest"
   ],
   "shell": {
     "init_hook": [
