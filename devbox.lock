@@ -1,6 +1,26 @@
 {
   "lockfile_version": "1",
   "packages": {
+    "black@latest": {
+      "last_modified": "2024-04-19T21:36:04Z",
+      "resolved": "github:NixOS/nixpkgs/92d295f588631b0db2da509f381b4fb1e74173c5#black",
+      "source": "devbox-search",
+      "version": "24.3.0",
+      "systems": {
+        "aarch64-darwin": {
+          "store_path": "/nix/store/mddwwi7vc8s1mx3fj3q9gsr98am0mzsr-python3.11-black-24.3.0"
+        },
+        "aarch64-linux": {
+          "store_path": "/nix/store/bwq2g8nnyk7nlydlm28pqm3pmy571bpr-python3.11-black-24.3.0"
+        },
+        "x86_64-darwin": {
+          "store_path": "/nix/store/vp2mq81ik90kzfbfwknfcdcnvfak92a7-python3.11-black-24.3.0"
+        },
+        "x86_64-linux": {
+          "store_path": "/nix/store/ivy0bfppgn4x76laalvg03llcqp0942v-python3.11-black-24.3.0"
+        }
+      }
+    },
     "mypy@latest": {
       "last_modified": "2024-04-19T21:36:04Z",
       "resolved": "github:NixOS/nixpkgs/92d295f588631b0db2da509f381b4fb1e74173c5#mypy",

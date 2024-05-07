@@ -5,7 +5,8 @@
     "zls@latest",
     "zig@latest",
     "ruff@latest",
-    "mypy@latest"
+    "mypy@latest",
+    "black@latest"
   ],
   "shell": {
     "init_hook": [
