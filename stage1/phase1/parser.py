@@ -30,7 +30,10 @@ For more information, please refer to <http://unlicense.org/>
 """
 
 from enum import Enum
-from typing import NamedTuple
+from typing import Literal, NamedTuple
+
+
+# syntax-related data structures
 
 
 class TyuUnitEnum(Enum):
@@ -199,3 +202,57 @@ TyuSyntax: dict[TyuUnitEnum, tuple[TyuSubunitType, ...]] = {
         [TyuSubunitEnum.REGISTER, TyuSubunitEnum.VALUE],
     ),
 }
+
+
+# abstract syntax tree / ast-related data structures
+
+
+class TyuBasicType(NamedTuple):
+    type: Literal["N"] | Literal["I"] | Literal["R"] | Literal["C"] | Literal["S"]
+
+
+class TyuListType(NamedTuple):
+    length: int
+    contenttype: TyuBasicType | "TyuListType" | "TyuFunctionType"
+    type: str = "L"
+
+
+class TyuFunctionType(NamedTuple):
+    argtype: TyuBasicType | TyuListType | "TyuFunctionType"
+    rettype: TyuBasicType | TyuListType | "TyuFunctionType"
+    type: str = "F"
+
+
+TyuType = TyuBasicType | TyuListType | TyuBasicType
+
+
+class TyuNamedRegister(NamedTuple):
+    name: str
+    type: TyuType
+
+
+class TyuSpecialRegister(NamedTuple):
+    number: int
+    type: TyuType
+
+
+TyuRegister = TyuNamedRegister | TyuSpecialRegister
+
+
+class TyuRational(NamedTuple):
+    numerator: int
+    denominator: int
+
+
+class TyuScope(NamedTuple):
+    units: list["TyuUnit"]
+
+
+class TyuUnit(NamedTuple):
+    sub1: TyuUnitEnum
+    sub2: str | int | TyuRational | TyuScope | TyuType | TyuRegister
+    sub3: str | int | TyuRational | TyuScope | TyuType | TyuRegister
+
+
+def parse(source: str) -> TyuScope:
+    return TyuScope([])
